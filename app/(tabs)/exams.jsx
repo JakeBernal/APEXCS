@@ -1,4 +1,5 @@
 import { View, Text } from "react-native";
+import BottomNav from "../components/bottomNav";
 
 export default function Exams() {
   return (
@@ -10,6 +11,8 @@ export default function Exams() {
       }}
     >
       <Text style={{ fontSize: 30 }}>EXAMS SCREEN</Text>
+
+   
     </View>
   );
 }

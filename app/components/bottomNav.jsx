@@ -16,22 +16,22 @@ export default function BottomNav() {
     {
       name: "home",
       label: "Home",
-      route: "/tabs/dashboard",
+      route: "/dashboard",
     },
     {
-      name: "document-text-outline",
+      name: "document-text",
       label: "Exams",
-      route: "/tabs/exams",
+      route: "/exams",
     },
     {
-      name: "pie-chart-outline",
+      name: "pie-chart",
       label: "Stats",
-      route: "/tabs/stats",
+      route: "/stats",
     },
     {
-      name: "person-outline",
+      name: "person",
       label: "Profile",
-      route: "/tabs/profile",
+      route: "/profile",
     },
   ];
 
@@ -39,6 +39,8 @@ export default function BottomNav() {
     <View style={styles.bottomNav}>
       {tabs.map((item) => {
         const isActive = pathname === item.route;
+        console.log("pathname:", pathname);
+        console.log(item.route, pathname === item.route);
 
         return (
           <TouchableOpacity
@@ -64,9 +66,11 @@ export default function BottomNav() {
               {item.label}
             </Text>
           </TouchableOpacity>
+          
         );
       })}
     </View>
+    
   );
 }
 

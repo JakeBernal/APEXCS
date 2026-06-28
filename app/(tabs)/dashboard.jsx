@@ -11,7 +11,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
-
+import BottomNav from "../components/bottomNav";
 
 
 const { width } = Dimensions.get("window");
@@ -281,59 +281,7 @@ export default function Dashboard() {
            
           </View> */}
       </ScrollView>
-{/* BOTTOM NAV */}
-<View style={styles.bottomNav}>
-  {[
-    {
-      name: "home",
-      label: "Home",
-      route: "/dashboard",
-    },
-    {
-      name: "document-text-outline",
-      label: "Exams",
-      route: "/exams",
-    },
-    {
-      name: "pie-chart-outline",
-      label: "Stats",
-      route: "/stats",
-    },
-    {
-      name: "person-outline",
-      label: "Profile",
-      route: "/profile",
-    },
-  ].map((item) => {
-    const isActive = pathname === item.route;
 
-    return (
-      <TouchableOpacity
-        key={item.label}
-        style={styles.navItem}
-        onPress={() => router.replace(item.route)}
-      >
-        <Ionicons
-          name={item.name}
-          size={22}
-          color={isActive ? COLORS.primary : COLORS.muted}
-        />
-
-        <Text
-          style={[
-            styles.navText,
-            isActive && {
-              color: COLORS.primary,
-              fontWeight: "700",
-            },
-          ]}
-        >
-          {item.label}
-        </Text>
-      </TouchableOpacity>
-    );
-  })}
-</View>
     </View>
   );
 }
@@ -691,27 +639,5 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
   },
 
-  /* BOTTOM NAV */
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    width: "100%",
-    height: 90,
-    backgroundColor: "#fff",
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navText: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginTop: 4,
-  },
+  
 });
