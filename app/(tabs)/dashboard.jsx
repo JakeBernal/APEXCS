@@ -280,6 +280,7 @@ export default function Dashboard() {
           {/* <View style={styles.performanceBottom}>
            
           </View> */}
+          
       </ScrollView>
 
     </View>
