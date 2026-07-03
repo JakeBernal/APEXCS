@@ -10,16 +10,19 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function ExamType() {
+  const [showMode, setShowMode] = useState(false);
+  const [selectedMode, setSelectedMode] = useState("review");
+  const [expandedIndex, setExpandedIndex] = useState(null);
+  const [selectedSubject, setSelectedSubject] = useState(null);
 
-  
-const COLORS = {
-  primary: "#386BF6",
-  secondary: "#1F46C7",
-  bg: "#F7F9FC",
-  card: "#FFFFFF",
-  text: "#14143A",
-  muted: "#8A94A6",
-};
+  const COLORS = {
+    primary: "#386BF6",
+    secondary: "#1F46C7",
+    bg: "#F7F9FC",
+    card: "#FFFFFF",
+    text: "#14143A",
+    muted: "#8A94A6",
+  };
 
   const [selected, setSelected] = useState("professional");
 
@@ -51,6 +54,14 @@ const COLORS = {
       lessons: 8,
       icon: "calculator-variant-outline",
       color: "#EEF2FF",
+      topics: [
+        "Basic Operations",
+        "Fractions & Decimals",
+        "Ratio & Proportion",
+        "Percentage",
+        "Algebra Basics",
+        "Word Problems",
+      ],
     },
     {
       title: "Analytical Ability",
@@ -58,6 +69,14 @@ const COLORS = {
       lessons: 8,
       icon: "brain",
       color: "#FFE9EF",
+      topics: [
+        "Logical Reasoning",
+        "Data Interpretation",
+        "Sequence & Series",
+        "Analogies",
+        "Syllogism",
+        "Pattern Recognition",
+      ],
     },
     {
       title: "Verbal Ability",
@@ -65,6 +84,14 @@ const COLORS = {
       lessons: 8,
       icon: "text-box-outline",
       color: "#E8F7FF",
+      topics: [
+        "Grammar & Usage",
+        "Vocabulary",
+        "Reading Comprehension",
+        "Sentence Correction",
+        "Paragraph Organization",
+        "Word Analogy",
+      ],
     },
     {
       title: "General Information",
@@ -72,53 +99,58 @@ const COLORS = {
       lessons: 8,
       icon: "lightbulb-outline",
       color: "#FFF6DA",
+      topics: [
+        "Philippine Constitution",
+        "Civil Service Laws",
+        "Current Events",
+        "Peace & Human Rights",
+        "Environmental Management",
+        "Code of Conduct",
+      ],
     },
   ];
 
+  // Different description per mode tab
+  const modeDescriptions = {
+    review: "Go through each question at your own pace with detailed explanations to help you learn as you go.",
+    timed: "Simulate real exam conditions with a strict time limit to build speed, focus, and confidence.",
+    flashcards: "Quickly flip through bite-sized flashcards to memorize key concepts and terms fast.",
+  };
+
+  const toggleExpand = (index) => {
+    setExpandedIndex(expandedIndex === index ? null : index);
+  };
+
+  const openExamFor = (subject) => {
+    setSelectedSubject(subject);
+    setShowMode(true);
+  };
+
   return (
-    
     <View style={styles.container}>
-  <ScrollView
-    showsVerticalScrollIndicator={false}
-    contentContainerStyle={{ paddingBottom: 40 }}
-  ></ScrollView>
       <ScrollView
+        style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 20 }}
       >
         {/* HEADER */}
-        <LinearGradient
-          colors={["#4D79FF", "#2346B8"]}
-          style={styles.header}
-        >
+        <LinearGradient colors={["#4D79FF", "#2346B8"]} style={styles.header}>
           <View style={styles.topRow}>
             <TouchableOpacity style={styles.backBtn}>
-              <Ionicons
-                name="chevron-back"
-                size={22}
-                color="#fff"
-              />
+              <Ionicons name="chevron-back" size={22} color="#fff" />
             </TouchableOpacity>
 
-            <Text style={styles.smallTitle}>
-              Civil Service Exam
-            </Text>
+            <Text style={styles.smallTitle}>Civil Service Exam</Text>
           </View>
 
           <View style={styles.middle}>
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{exam.title}</Text>
 
-              <Text style={styles.desc}>
-                {exam.description}
-              </Text>
+              <Text style={styles.desc}>{exam.description}</Text>
             </View>
 
-            <Ionicons
-              name={exam.icon}
-              size={42}
-              color="#fff"
-            />
+            <Ionicons name={exam.icon} size={42} color="#fff" />
           </View>
 
           <View style={styles.stats}>
@@ -128,16 +160,12 @@ const COLORS = {
             </View>
 
             <View>
-              <Text style={styles.number}>
-                {exam.duration}
-              </Text>
+              <Text style={styles.number}>{exam.duration}</Text>
               <Text style={styles.label}>DURATION</Text>
             </View>
 
             <View>
-              <Text style={styles.number}>
-                {exam.passing}
-              </Text>
+              <Text style={styles.number}>{exam.passing}</Text>
               <Text style={styles.label}>TO PASS</Text>
             </View>
           </View>
@@ -148,16 +176,14 @@ const COLORS = {
           <TouchableOpacity
             style={[
               styles.switchBtn,
-              selected === "professional" &&
-                styles.activeBtn,
+              selected === "professional" && styles.activeBtn,
             ]}
             onPress={() => setSelected("professional")}
           >
             <Text
               style={[
                 styles.switchText,
-                selected === "professional" &&
-                  styles.activeText,
+                selected === "professional" && styles.activeText,
               ]}
             >
               Professional
@@ -165,18 +191,13 @@ const COLORS = {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.switchBtn,
-              selected === "sub" &&
-                styles.activeBtn,
-            ]}
+            style={[styles.switchBtn, selected === "sub" && styles.activeBtn]}
             onPress={() => setSelected("sub")}
           >
             <Text
               style={[
                 styles.switchText,
-                selected === "sub" &&
-                  styles.activeText,
+                selected === "sub" && styles.activeText,
               ]}
             >
               Sub-Professional
@@ -185,73 +206,162 @@ const COLORS = {
         </View>
 
         {/* SUBJECTS */}
+        {subjects.map((item, index) => {
+          const isExpanded = expandedIndex === index;
 
-        {subjects.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.subjectCard}
-          >
-            <View
-              style={[
-                styles.iconBox,
-                { backgroundColor: item.color },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name={item.icon}
-                size={28}
-                color="#386BF6"
-              />
+          return (
+            <View key={index} style={styles.subjectCard}>
+              <TouchableOpacity
+                style={styles.subjectCardHeader}
+                onPress={() => toggleExpand(index)}
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[styles.iconBox, { backgroundColor: item.color }]}
+                >
+                  <MaterialCommunityIcons
+                    name={item.icon}
+                    size={28}
+                    color="#386BF6"
+                  />
+                </View>
+
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={styles.subjectTitle}>{item.title}</Text>
+
+                  <Text style={styles.subjectSub}>{item.subtitle}</Text>
+
+                  <View style={styles.lessonBadge}>
+                    <Text style={styles.lessonText}>
+                      {item.lessons} Lessons
+                    </Text>
+                  </View>
+                </View>
+
+                <Ionicons
+                  name={isExpanded ? "chevron-up" : "chevron-down"}
+                  size={22}
+                  color="#386BF6"
+                />
+              </TouchableOpacity>
+
+              {isExpanded && (
+                <View style={styles.topicsWrapper}>
+                  {item.topics.map((topic, tIndex) => (
+                    <View key={tIndex} style={styles.topicRow}>
+                      <MaterialCommunityIcons
+                        name="checkbox-blank-circle-outline"
+                        size={14}
+                        color="#386BF6"
+                      />
+                      <Text style={styles.topicText}>{topic}</Text>
+                    </View>
+                  ))}
+
+                  <TouchableOpacity
+                    style={styles.categoryExamBtn}
+                    onPress={() => openExamFor(item)}
+                  >
+                    <Text style={styles.categoryExamText}>
+                      Take {item.title} Exam
+                    </Text>
+                    <Ionicons
+                      name="arrow-forward"
+                      size={16}
+                      color="#386BF6"
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={styles.subjectTitle}>
-                {item.title}
-              </Text>
-
-              <Text style={styles.subjectSub}>
-                {item.subtitle}
-              </Text>
-
-              <View style={styles.lessonBadge}>
-                <Text style={styles.lessonText}>
-                  {item.lessons} Lessons
-                </Text>
-              </View>
-            </View>
-
-            <Ionicons
-              name="chevron-down"
-              size={22}
-              color="#386BF6"
-            />
-          </TouchableOpacity>
-        ))}
-
-        {/* BUTTON */}
-
-        <TouchableOpacity style={styles.takeExam}>
-          <Text style={styles.takeText}>
-            Take Exam
-          </Text>
-        </TouchableOpacity>
+          );
+        })}
       </ScrollView>
+
+      {/* STICKY TAKE EXAM BUTTON */}
+      <View style={styles.stickyFooter}>
+        <TouchableOpacity
+          style={styles.takeExam}
+          onPress={() => openExamFor(null)}
+        >
+          <Text style={styles.takeText}>Take Exam</Text>
+        </TouchableOpacity>
+      </View>
+
+      {showMode && (
+        <View style={styles.overlay}>
+          <LinearGradient colors={["#4D79FF", "#2346B8"]} style={styles.modeCard}>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={() => {
+                setShowMode(false);
+                setSelectedSubject(null);
+              }}
+            >
+              <Ionicons name="chevron-down" size={22} color="#fff" />
+            </TouchableOpacity>
+
+            <Text style={styles.modeTitle}>
+              {selectedSubject ? selectedSubject.title : "All Categories"}
+            </Text>
+
+            {/* Tabs */}
+            <View style={styles.modeTabs}>
+              {["review", "timed", "flashcards"].map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={[
+                    styles.modeTab,
+                    selectedMode === item && styles.modeTabActive,
+                  ]}
+                  onPress={() => setSelectedMode(item)}
+                >
+                  <Text
+                    style={[
+                      styles.modeTabText,
+                      selectedMode === item && styles.modeTabTextActive,
+                    ]}
+                  >
+                    {item.charAt(0).toUpperCase() + item.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.modeDescription}>
+              {modeDescriptions[selectedMode]}
+            </Text>
+
+            <Text style={styles.modeScope}>
+              {selectedSubject
+                ? `Covers: ${selectedSubject.topics.join(", ")}`
+                : "Covers all 4 categories — great for spotting your overall strengths and weaknesses."}
+            </Text>
+
+            <TouchableOpacity style={styles.practiceBtn}>
+              <Text style={styles.practiceText}>
+                {selectedMode === "flashcards" ? "Start Flashcards" : "Start"}
+              </Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      )}
     </View>
   );
 }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: "#fff",
   },
 
   /* HEADER */
-header: {
-  paddingTop: 70,
+  header: {
+    paddingTop: 70,
     paddingBottom: 30,
     paddingHorizontal: 24,
-  overflow: "hidden",
-},
+    overflow: "hidden",
+  },
 
   topRow: {
     flexDirection: "row",
@@ -360,8 +470,6 @@ header: {
     marginTop: 18,
     borderRadius: 24,
     padding: 18,
-    flexDirection: "row",
-    alignItems: "center",
 
     shadowColor: "#000",
     shadowOpacity: 0.05,
@@ -372,6 +480,47 @@ header: {
     },
 
     elevation: 3,
+  },
+
+  subjectCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  topicsWrapper: {
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#EEF2FF",
+  },
+
+  topicRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+
+  topicText: {
+    marginLeft: 10,
+    color: "#4A5578",
+    fontSize: 14,
+  },
+
+  categoryExamBtn: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EEF4FF",
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 6,
+  },
+
+  categoryExamText: {
+    color: "#386BF6",
+    fontWeight: "700",
+    fontSize: 14,
   },
 
   iconBox: {
@@ -410,13 +559,19 @@ header: {
     fontWeight: "700",
   },
 
-  /* BUTTON */
+  /* STICKY FOOTER + BUTTON */
+
+  stickyFooter: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#EEF2FF",
+  },
 
   takeExam: {
     backgroundColor: "#386BF6",
-    marginHorizontal: 20,
-    marginTop: 28,
-    marginBottom: 30,
     height: 58,
     borderRadius: 18,
     justifyContent: "center",
@@ -437,5 +592,92 @@ header: {
     color: "#fff",
     fontSize: 17,
     fontWeight: "700",
+  },
+
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "flex-end",
+  },
+
+  modeCard: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 25,
+    paddingBottom: 40,
+  },
+
+  closeBtn: {
+    alignSelf: "flex-end",
+  },
+
+  modeTitle: {
+    color: "#fff",
+    fontSize: 24,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+
+  modeTabs: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 4,
+  },
+
+  modeTab: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+
+  modeTabActive: {
+    backgroundColor: "#386BF6",
+  },
+
+  modeTabText: {
+    color: "#386BF6",
+    fontWeight: "700",
+  },
+
+  modeTabTextActive: {
+    color: "#fff",
+  },
+
+  modeDescription: {
+    color: "#DCE6FF",
+    textAlign: "center",
+    marginTop: 22,
+    lineHeight: 22,
+  },
+
+  modeScope: {
+    color: "#B9C9FF",
+    textAlign: "center",
+    marginTop: 12,
+    fontSize: 12,
+    lineHeight: 18,
+    paddingHorizontal: 10,
+  },
+
+  practiceBtn: {
+    marginTop: 28,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    height: 55,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  practiceText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
   },
 });
