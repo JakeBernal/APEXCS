@@ -9,6 +9,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import ExamSession from "./ExamSession";
+import { router } from "expo-router";
 
 export default function ExamType() {
   const [showMode, setShowMode] = useState(false);
@@ -148,7 +149,7 @@ export default function ExamType() {
         {/* HEADER */}
         <LinearGradient colors={["#4D79FF", "#2346B8"]} style={styles.header}>
           <View style={styles.topRow}>
-            <TouchableOpacity style={styles.backBtn}>
+            <TouchableOpacity style={styles.backBtn} onPress={()=> router.replace("/dashboard")}>
               <Ionicons name="chevron-back" size={22} color="#fff" />
             </TouchableOpacity>
 
