@@ -8,12 +8,14 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import ExamSession from "./ExamSession";
 
 export default function ExamType() {
   const [showMode, setShowMode] = useState(false);
   const [selectedMode, setSelectedMode] = useState("review");
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
+  const [activeSession, setActiveSession] = useState(false);
 
   const COLORS = {
     primary: "#386BF6",
@@ -126,7 +128,17 @@ export default function ExamType() {
     setShowMode(true);
   };
 
-  return (
+  return activeSession ? (
+    <ExamSession
+      subject={selectedSubject}
+      level={selected}
+      mode={selectedMode}
+      onExit={() => {
+        setActiveSession(false);
+        setSelectedSubject(null);
+      }}
+    />
+  ) : (
     <View style={styles.container}>
       <ScrollView
         style={{ flex: 1 }}
@@ -338,7 +350,13 @@ export default function ExamType() {
                 : "Covers all 4 categories — great for spotting your overall strengths and weaknesses."}
             </Text>
 
-            <TouchableOpacity style={styles.practiceBtn}>
+            <TouchableOpacity
+              style={styles.practiceBtn}
+              onPress={() => {
+                setShowMode(false);
+                setActiveSession(true);
+              }}
+            >
               <Text style={styles.practiceText}>
                 {selectedMode === "flashcards" ? "Start Flashcards" : "Start"}
               </Text>
