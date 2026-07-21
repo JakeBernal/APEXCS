@@ -18,6 +18,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const { signIn } = useAuth();
+  const { signUp} = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
