@@ -9,12 +9,38 @@ import {
   ScrollView,
   Platform,
   Image,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
+  const { signIn } = useAuth();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Missing info", "Please enter your email and password.");
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await signIn({ email, password });
+    setLoading(false);
+
+    if (error) {
+      Alert.alert("Login failed", error.message);
+      return;
+    }
+
+    router.push("/dashboard");
+  };
 
   return (
     <KeyboardAvoidingView
@@ -39,13 +65,21 @@ export default function Login() {
         <View style={styles.form}>
 
           <Text style={styles.label}>Email Address</Text>
-          <TextInput style={styles.input} keyboardType="email-address" />
+          <TextInput
+            style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
 
           <Text style={styles.label}>Password</Text>
           <View style={styles.passwordBox}>
             <TextInput
               style={styles.passwordInput}
               secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               <Ionicons
@@ -66,8 +100,16 @@ export default function Login() {
 
         </View>
 
-        <TouchableOpacity style={styles.primaryBtn} onPress={()=> router.push("/dashboard")}>
-          <Text style={styles.primaryBtnText}>Login</Text>
+        <TouchableOpacity
+          style={[styles.primaryBtn, { opacity: loading ? 0.5 : 1 }]}
+          disabled={loading}
+          onPress={handleLogin}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.primaryBtnText}>Login</Text>
+          )}
         </TouchableOpacity>
         <Text style={styles.or}>Or</Text>
         <TouchableOpacity style={styles.googleBtn}>
