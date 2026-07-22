@@ -5,9 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useAuth } from "../../context/AuthContext";
 
 const COLORS = {
   primary: "#386BF6",
@@ -19,6 +22,26 @@ const COLORS = {
 };
 
 export default function Profile() {
+  const { user, signOut } = useAuth();
+
+  const fullName = user?.user_metadata?.full_name || "Your Name";
+  const email = user?.email || "";
+  const initial = fullName.charAt(0).toUpperCase();
+
+  const handleLogout = () => {
+    Alert.alert("Log out", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log out",
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+          router.replace("/login");
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -33,12 +56,12 @@ export default function Profile() {
           style={styles.header}
         >
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>J</Text>
+            <Text style={styles.avatarText}>{initial}</Text>
           </View>
 
           <View style={styles.userInfo}>
-            <Text style={styles.name}>Juan Dela Cruz</Text>
-            <Text style={styles.email}>juandelacruz@gmail.com</Text>
+            <Text style={styles.name}>{fullName}</Text>
+            <Text style={styles.email}>{email}</Text>
 
             <View style={styles.locationRow}>
               <Ionicons
@@ -175,6 +198,7 @@ export default function Profile() {
             icon="log-out-outline"
             title="Logout"
             danger
+            onPress={handleLogout}
           />
         </View>
       </ScrollView>
@@ -182,9 +206,9 @@ export default function Profile() {
   );
 }
 
-function SettingItem({ icon, title, danger }) {
+function SettingItem({ icon, title, danger, onPress }) {
   return (
-    <TouchableOpacity style={styles.settingItem}>
+    <TouchableOpacity style={styles.settingItem} onPress={onPress}>
       <Ionicons
         name={icon}
         size={22}
@@ -376,4 +400,4 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: "600",
   },
-}); 
+});

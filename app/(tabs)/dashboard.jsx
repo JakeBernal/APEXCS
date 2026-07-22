@@ -7,12 +7,13 @@ import {
   Dimensions,
   FlatList,
   ScrollView,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
 import BottomNav from "../components/bottomNav";
-
+import { useAuth } from "../../context/AuthContext";
 
 const { width } = Dimensions.get("window");
 
@@ -57,11 +58,19 @@ function getCountdown(targetDate) {
 }
 
 export default function Dashboard() {
+  const { user, session, loading, signOut } = useAuth();
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("home");
-  const [countdown, setCountdown] = useState(getCountdown(EXAM_DATE));
   const pathname = usePathname();
   const flatListRef = useRef();
+
+  // Route guard: bounce to login if there's no active session
+  useEffect(() => {
+    if (!loading && !session) {
+      router.replace("/login");
+    }
+  }, [loading, session]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -76,6 +85,23 @@ export default function Dashboard() {
     );
     setCurrentIndex(index);
   };
+
+  const handleAvatarPress = () => {
+    Alert.alert("Account", undefined, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log out",
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+          router.replace("/login");
+        },
+      },
+    ]);
+  };
+
+
+  const displayName = user?.user_metadata?.full_name || user?.email || "Welcome";
 
   const renderCard = ({ item, index }) => {
     const isActive = index === currentIndex;
@@ -112,18 +138,18 @@ export default function Dashboard() {
           {/* STATS ROW */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statNum}>{countdown.days}</Text>
-              <Text style={styles.statUnit}>Days Left</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNum}>3</Text>
+              <Text style={styles.statNum}>5</Text>
               <Text style={styles.statUnit}>Mock Exams</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNum}>72%</Text>
+              <Text style={styles.statNum}>3</Text>
               <Text style={styles.statUnit}>Last Score</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNum}>72%</Text>
+              <Text style={styles.statUnit}>Best Score</Text>
             </View>
           </View>
         </LinearGradient>
@@ -181,6 +207,11 @@ export default function Dashboard() {
     );
   };
 
+  // Avoid flashing dashboard content before the redirect kicks in
+  if (loading || !session) {
+    return <View style={styles.container} />;
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -191,7 +222,7 @@ export default function Dashboard() {
         <View style={styles.header}>
           <View>
             <Text style={styles.welcome}>Welcome Back</Text>
-            <Text style={styles.dashboard}>Juan Dela Cruz</Text>
+            <Text style={styles.dashboard}>{displayName}</Text>
           </View>
 
           <View style={styles.headerRight}>
@@ -199,7 +230,7 @@ export default function Dashboard() {
               <Ionicons name="notifications-outline" size={22} color="#111" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.avatar}>
+            <TouchableOpacity style={styles.avatar} onPress={handleAvatarPress}>
               <Ionicons name="person" size={18} color="#fff" />
             </TouchableOpacity>
           </View>
