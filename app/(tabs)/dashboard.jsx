@@ -62,6 +62,7 @@ export default function Dashboard() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("home");
+  const [countdown, setCountdown] = useState(getCountdown(EXAM_DATE));
   const pathname = usePathname();
   const flatListRef = useRef();
 
@@ -138,7 +139,7 @@ export default function Dashboard() {
           {/* STATS ROW */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statNum}>5</Text>
+              <Text style={styles.statNum}>{countdown.days}</Text>
               <Text style={styles.statUnit}>Mock Exams</Text>
             </View>
             <View style={styles.statDivider} />
