@@ -1,12 +1,15 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useFocusEffect } from "expo-router";
+import { getAttemptHistory, PASS_THRESHOLD } from "../../lib/attempts";
 
 const COLORS = {
   primary: "#386BF6",
@@ -17,7 +20,46 @@ const COLORS = {
   muted: "#8A94A6",
 };
 
+const SUBJECT_COLORS = ["#67C36D", "#D6DD55", "#F0AE65", "#EC6666", "#7C9CF0"];
+
+function formatDuration(seconds) {
+  if (!seconds && seconds !== 0) return "—";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 export default function Stats() {
+  const [attempts, setAttempts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all"); // "all" | "professional" | "sub"
+
+  const loadHistory = useCallback(() => {
+    setLoading(true);
+    getAttemptHistory()
+      .then((data) => setAttempts(data.filter((a) => a.mode !== "flashcards")))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Refetch every time this tab comes into focus, so a just-finished
+  // exam shows up immediately without needing a manual app reload.
+  useFocusEffect(
+    useCallback(() => {
+      loadHistory();
+    }, [loadHistory])
+  );
+
+  const filtered = attempts.filter((a) => {
+    if (filter === "all") return true;
+    return a.level === filter;
+  });
+
+  const examsTaken = filtered.length;
+  const passed = filtered.filter((a) => (a.score ?? 0) >= PASS_THRESHOLD).length;
+  const bestScore = examsTaken > 0 ? Math.max(...filtered.map((a) => a.score ?? 0)) : 0;
+  const growth =
+    filtered.length >= 2 ? (filtered[0].score ?? 0) - (filtered[1].score ?? 0) : 0;
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -35,102 +77,164 @@ export default function Stats() {
           style={styles.summaryCard}
         >
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryNumber}>10</Text>
+            <Text style={styles.summaryNumber}>{examsTaken}</Text>
             <Text style={styles.summaryLabel}>Exam Taken</Text>
           </View>
 
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryNumber}>3</Text>
+            <Text style={styles.summaryNumber}>{passed}</Text>
             <Text style={styles.summaryLabel}>Passed</Text>
           </View>
 
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryNumber}>72%</Text>
+            <Text style={styles.summaryNumber}>{bestScore}%</Text>
             <Text style={styles.summaryLabel}>Best Score</Text>
           </View>
 
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryNumber}>+11%</Text>
+            <Text style={styles.summaryNumber}>
+              {growth >= 0 ? "+" : ""}
+              {growth}%
+            </Text>
             <Text style={styles.summaryLabel}>Growth</Text>
           </View>
         </LinearGradient>
 
         {/* FILTERS */}
         <View style={styles.filterRow}>
-          <TouchableOpacity style={styles.activeFilter}>
-            <Text style={styles.activeFilterText}>All</Text>
+          <TouchableOpacity
+            style={filter === "all" ? styles.activeFilter : styles.filter}
+            onPress={() => setFilter("all")}
+          >
+            <Text style={filter === "all" ? styles.activeFilterText : styles.filterText}>
+              All
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.filter}>
-            <Text style={styles.filterText}>Professional</Text>
+          <TouchableOpacity
+            style={filter === "professional" ? styles.activeFilter : styles.filter}
+            onPress={() => setFilter("professional")}
+          >
+            <Text
+              style={filter === "professional" ? styles.activeFilterText : styles.filterText}
+            >
+              Professional
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.filter}>
-            <Text style={styles.filterText}>Sub-Professional</Text>
+          <TouchableOpacity
+            style={filter === "sub" ? styles.activeFilter : styles.filter}
+            onPress={() => setFilter("sub")}
+          >
+            <Text style={filter === "sub" ? styles.activeFilterText : styles.filterText}>
+              Sub-Professional
+            </Text>
           </TouchableOpacity>
         </View>
 
-        {/* HISTORY CARD */}
-        <View style={styles.card}>
-          {/* TOP */}
-          <View style={styles.cardHeader}>
-            <View style={styles.scoreBadge}>
-              <Text style={styles.scoreBadgeText}>72%</Text>
-            </View>
+        {loading && (
+          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+        )}
 
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.examTitle}>Mock Exam #3</Text>
-              <Text style={styles.examType}>Professional</Text>
-            </View>
+        {!loading && filtered.length === 0 && (
+          <Text style={styles.emptyText}>
+            No exams taken yet. Take a mock exam to see it here.
+          </Text>
+        )}
 
-            <View style={styles.failedBadge}>
-              <Text style={styles.failedText}>Failed</Text>
-            </View>
-          </View>
+        {!loading &&
+          filtered.map((attempt, index) => {
+            const passedThis = (attempt.score ?? 0) >= PASS_THRESHOLD;
+            const prevSameFilter = filtered[index + 1];
+            const vsPrev = prevSameFilter
+              ? (attempt.score ?? 0) - (prevSameFilter.score ?? 0)
+              : null;
 
-          {/* SUBJECTS */}
-          <ProgressRow
-            label="Verbal Ability"
-            percent={72}
-            color="#67C36D"
-          />
+            return (
+              <View key={attempt.id} style={styles.card}>
+                {/* TOP */}
+                <View style={styles.cardHeader}>
+                  <View
+                    style={[
+                      styles.scoreBadge,
+                      { backgroundColor: passedThis ? "#E1F7E6" : "#FDE0E0" },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.scoreBadgeText,
+                        { color: passedThis ? "#2FA84F" : "#D44A4A" },
+                      ]}
+                    >
+                      {attempt.score ?? 0}%
+                    </Text>
+                  </View>
 
-          <ProgressRow
-            label="Analytical Ability"
-            percent={52}
-            color="#D6DD55"
-          />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.examTitle}>
+                      {attempt.subject_title || "All Categories"}
+                    </Text>
+                    <Text style={styles.examType}>
+                      {attempt.level === "professional" ? "Professional" : "Sub-Professional"}
+                    </Text>
+                  </View>
 
-          <ProgressRow
-            label="Numerical Ability"
-            percent={45}
-            color="#F0AE65"
-          />
+                  <View
+                    style={[
+                      styles.failedBadge,
+                      { backgroundColor: passedThis ? "#DFF6E4" : "#FFE1E1" },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.failedText,
+                        { color: passedThis ? "#2FA84F" : "#D44A4A" },
+                      ]}
+                    >
+                      {passedThis ? "Passed" : "Failed"}
+                    </Text>
+                  </View>
+                </View>
 
-          <ProgressRow
-            label="General Information"
-            percent={30}
-            color="#EC6666"
-          />
+                {/* SUBJECTS */}
+                {(attempt.subject_breakdown || []).map((s, i) => {
+                  const percent = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+                  return (
+                    <ProgressRow
+                      key={s.title}
+                      label={s.title}
+                      percent={percent}
+                      color={SUBJECT_COLORS[i % SUBJECT_COLORS.length]}
+                    />
+                  );
+                })}
 
-          {/* BOTTOM */}
-          <View style={styles.bottomStats}>
-            <View>
-              <Text style={styles.bottomNumber}>122/170</Text>
-              <Text style={styles.bottomLabel}>Score</Text>
-            </View>
+                {/* BOTTOM */}
+                <View style={styles.bottomStats}>
+                  <View>
+                    <Text style={styles.bottomNumber}>
+                      {attempt.correct_count ?? 0}/{attempt.total_questions ?? 0}
+                    </Text>
+                    <Text style={styles.bottomLabel}>Score</Text>
+                  </View>
 
-            <View>
-              <Text style={styles.bottomNumber}>2h 48m</Text>
-              <Text style={styles.bottomLabel}>Time</Text>
-            </View>
+                  <View>
+                    <Text style={styles.bottomNumber}>
+                      {formatDuration(attempt.duration_seconds)}
+                    </Text>
+                    <Text style={styles.bottomLabel}>Time</Text>
+                  </View>
 
-            <View>
-              <Text style={styles.bottomNumber}>+4%</Text>
-              <Text style={styles.bottomLabel}>Vs Prev</Text>
-            </View>
-          </View>
-        </View>
+                  <View>
+                    <Text style={styles.bottomNumber}>
+                      {vsPrev === null ? "—" : `${vsPrev >= 0 ? "+" : ""}${vsPrev}%`}
+                    </Text>
+                    <Text style={styles.bottomLabel}>Vs Prev</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
       </ScrollView>
     </View>
   );
@@ -237,9 +341,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  emptyText: {
+    textAlign: "center",
+    color: COLORS.muted,
+    marginTop: 30,
+    paddingHorizontal: 24,
+  },
+
   card: {
     backgroundColor: "#fff",
     marginHorizontal: 24,
+    marginBottom: 18,
     borderRadius: 18,
     padding: 18,
     elevation: 5,
@@ -252,14 +364,12 @@ const styles = StyleSheet.create({
   },
 
   scoreBadge: {
-    backgroundColor: "#FDE0E0",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
 
   scoreBadgeText: {
-    color: "#D44A4A",
     fontWeight: "700",
     fontSize: 12,
   },
@@ -276,14 +386,12 @@ const styles = StyleSheet.create({
   },
 
   failedBadge: {
-    backgroundColor: "#FFE1E1",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
 
   failedText: {
-    color: "#D44A4A",
     fontWeight: "700",
     fontSize: 12,
   },

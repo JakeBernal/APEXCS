@@ -14,6 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
 import BottomNav from "../components/bottomNav";
 import { useAuth } from "../../context/AuthContext";
+import { useFocusEffect } from "expo-router";
+import { getDashboardSummary } from "../../lib/attempts";
 
 const { width } = Dimensions.get("window");
 
@@ -57,6 +59,15 @@ function getCountdown(targetDate) {
   return { days, hours, minutes };
 }
 
+// Maps a 0-100 readiness percent to a color band: red (struggling) up
+// through orange, yellow, to green (ready).
+function getReadinessColor(percent) {
+  if (percent < 25) return "#EC6666";   // red
+  if (percent < 50) return "#F0AE65";   // orange
+  if (percent < 75) return "#D6DD55";   // yellow
+  return "#67C36D";                     // green
+}
+
 export default function Dashboard() {
   const { user, session, loading, signOut } = useAuth();
 
@@ -65,6 +76,22 @@ export default function Dashboard() {
   const [countdown, setCountdown] = useState(getCountdown(EXAM_DATE));
   const pathname = usePathname();
   const flatListRef = useRef();
+
+  const [summary, setSummary] = useState({
+    examsTaken: 0,
+    bestScore: 0,
+    lastScore: 0,
+    avgScore: 0,
+    subjectReadiness: [],
+  });
+
+  // Refetch whenever this tab regains focus, so a just-finished exam
+  // updates the dashboard immediately without a manual reload.
+  useFocusEffect(
+    React.useCallback(() => {
+      getDashboardSummary().then(setSummary);
+    }, [])
+  );
 
   // Route guard: bounce to login if there's no active session
   useEffect(() => {
@@ -101,8 +128,9 @@ export default function Dashboard() {
     ]);
   };
 
-
-  const displayName = user?.user_metadata?.full_name || user?.email || "Welcome";
+  // Falls back gracefully while the profile name loads, or if it's missing
+  const displayName =
+    user?.user_metadata?.full_name || user?.email || "Welcome";
 
   const renderCard = ({ item, index }) => {
     const isActive = index === currentIndex;
@@ -127,12 +155,12 @@ export default function Dashboard() {
           </View>
 
           {/* BIG SCORE */}
-          <Text style={styles.bigScore}>60.5%</Text>
+          <Text style={styles.bigScore}>{summary.avgScore}%</Text>
           <Text style={styles.avgScoreLabel}>Avg. Score</Text>
 
           {/* HORIZONTAL PROGRESS BAR */}
           <View style={styles.hBarBg}>
-            <View style={[styles.hBarFill, { width: "60.5%" }]} />
+            <View style={[styles.hBarFill, { width: `${summary.avgScore}%` }]} />
           </View>
           <Text style={styles.hBarHint}>Keep going! You need 80% to pass.</Text>
 
@@ -140,17 +168,17 @@ export default function Dashboard() {
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statNum}>{countdown.days}</Text>
+              <Text style={styles.statUnit}>Days Left</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNum}>{summary.examsTaken}</Text>
               <Text style={styles.statUnit}>Mock Exams</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNum}>3</Text>
+              <Text style={styles.statNum}>{summary.lastScore}%</Text>
               <Text style={styles.statUnit}>Last Score</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNum}>72%</Text>
-              <Text style={styles.statUnit}>Best Score</Text>
             </View>
           </View>
         </LinearGradient>
@@ -287,31 +315,38 @@ export default function Dashboard() {
         {/* Subject Readiness */}
         <Text style={styles.sectionTitle}>Subject Readiness</Text>
 
-        <View style={styles.performanceCard}>
-          <View style={styles.performanceRow}>
-            <Text style={styles.performanceLabel}>Analytical Ability</Text>
-            <Text style={styles.performanceValue}>87%</Text>
-          </View>
+        {summary.subjectReadiness.length === 0 && (
+          <Text
+            style={{
+              color: COLORS.muted,
+              paddingHorizontal: SPACING.lg,
+              marginBottom: 10,
+            }}
+          >
+            Take a mock exam to see your readiness per subject.
+          </Text>
+        )}
 
-          <View style={styles.progressBarBg}>
-            <View style={styles.progressBarFill} />
-          </View>
-        </View>
-        
-        {/*Verbal */}
-        <View style={styles.performanceCard}>
-          <View style={styles.performanceRow}>
-            <Text style={styles.performanceLabel}>Verbal Ability</Text>
-            <Text style={styles.performanceValue}>87%  </Text>
-          </View>
+        {summary.subjectReadiness.map((s) => {
+          const color = getReadinessColor(s.percent);
+          return (
+            <View key={s.title} style={styles.performanceCard}>
+              <View style={styles.performanceRow}>
+                <Text style={styles.performanceLabel}>{s.title}</Text>
+                <Text style={[styles.performanceValue, { color }]}>{s.percent}%</Text>
+              </View>
 
-          <View style={styles.progressBarBg}>
-            <View style={styles.progressBarFill} />
-          </View>
-        </View>
-          {/* <View style={styles.performanceBottom}>
-           
-          </View> */}
+              <View style={styles.progressBarBg}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    { width: `${s.percent}%`, backgroundColor: color },
+                  ]}
+                />
+              </View>
+            </View>
+          );
+        })}
           
       </ScrollView>
 

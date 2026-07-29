@@ -26,6 +26,7 @@ export default function ExamQuestionScreen({
   setTimeLeft,
   onBack,
   onRequestSubmit,
+  onTimeUp,
 }) {
   const [flipped, setFlipped] = useState(false);
   const timerRef = useRef(null);
@@ -44,7 +45,11 @@ export default function ExamQuestionScreen({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
-          onRequestSubmit();
+          if (onTimeUp) {
+            onTimeUp();
+          } else {
+            onRequestSubmit();
+          }
           return 0;
         }
         return prev - 1;
@@ -196,11 +201,13 @@ export default function ExamQuestionScreen({
               <Text style={styles.explanationTitle}>
                 {selected === question.correctIndex
                   ? "Correct!"
-                  : "Not quite."}
+                  : `Not quite — the correct answer is ${LETTERS[question.correctIndex]}. ${question.choices[question.correctIndex]}`}
               </Text>
-              <Text style={styles.explanationText}>
-                {question.explanation}
-              </Text>
+              {!!question.explanation && (
+                <Text style={styles.explanationText}>
+                  {question.explanation}
+                </Text>
+              )}
             </View>
           )}
         </View>
