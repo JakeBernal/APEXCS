@@ -198,6 +198,7 @@ const styles = StyleSheet.create({
   passwordInput: {
     flex: 1,
     paddingVertical: 18,
+    color: "#2a2929",
   },
 
   forgotWrap: {

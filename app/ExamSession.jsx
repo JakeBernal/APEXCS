@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from "react";
-import { View } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, ActivityIndicator, Text } from "react-native";
 import ExamQuestionScreen from "./ExamQuestionScreen";
 import ExamResultScreen from "./ExamResultScreen";
 import SubmitExamModal from "./SubmitExamModal";
-import { buildQuestionSet } from "./examData";
+import { buildQuestionSet } from "../lib/examData";
 
 // Duration in seconds per level for the "timed" mode. Tweak as needed —
 // currently a placeholder, not tied to real per-subject question counts.
@@ -14,9 +14,33 @@ const TIMED_DURATION = {
 
 export default function ExamSession({ subject, level, mode, onExit }) {
   // subject: { title, topics } | null (null = "All Categories")
-  const questions = useMemo(() => buildQuestionSet(subject?.title ?? null), [
-    subject,
-  ]);
+  const [questions, setQuestions] = useState([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setLoadingQuestions(true);
+    setLoadError(null);
+
+    buildQuestionSet(subject?.title ?? null)
+      .then((data) => {
+        if (cancelled) return;
+        setQuestions(data);
+        setLoadingQuestions(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load questions:", err);
+        setLoadError("Couldn't load questions. Please check your connection and try again.");
+        setLoadingQuestions(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [subject]);
 
   const [screen, setScreen] = useState("question"); // "question" | "result"
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -26,7 +50,7 @@ export default function ExamSession({ subject, level, mode, onExit }) {
 
   const subjectLabel = subject ? subject.title : "All Categories";
   const levelLabel = level === "professional" ? "Professional" : "Sub-Professional";
-
+ 
   const resetSession = () => {
     setScreen("question");
     setCurrentIndex(0);
@@ -87,6 +111,34 @@ export default function ExamSession({ subject, level, mode, onExit }) {
       setShowSubmitModal(true);
     }
   };
+
+  if (loadingQuestions) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#386BF6" />
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
+        <Text style={{ textAlign: "center", color: "#E74C3C", fontSize: 15 }}>
+          {loadError}
+        </Text>
+      </View>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
+        <Text style={{ textAlign: "center", color: "#7D8FB3", fontSize: 15 }}>
+          TESTMARKER123 - No published questions found for "{subjectLabel}" yet.
+        </Text>
+      </View>
+    );
+  }
 
   if (screen === "result" && results) {
     return (

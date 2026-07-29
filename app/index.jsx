@@ -1,9 +1,20 @@
 import React, { useEffect, useRef } from "react";
 import { View, Animated, StyleSheet, Easing } from "react-native";
 import { router } from "expo-router";
+import { useAuth } from "../context/AuthContext";
 
 export default function Index() {
- 
+  const { session, loading } = useAuth();
+
+  // The animation's completion callback fires from a useEffect that only
+  // runs once on mount, so it would otherwise "see" stale session/loading
+  // values from that first render. This ref keeps it reading the latest
+  // values at the moment the animation actually finishes.
+  const authRef = useRef({ session, loading });
+  useEffect(() => {
+    authRef.current = { session, loading };
+  }, [session, loading]);
+
   const scaleAnim     = useRef(new Animated.Value(0)).current;
   const slideAnim     = useRef(new Animated.Value(-100)).current;
   const fadeAnim      = useRef(new Animated.Value(0)).current;
@@ -57,7 +68,12 @@ export default function Index() {
           }),
         ]).start(() => {
           setTimeout(() => {
-            router.replace("/getstarted");
+            const { session: currentSession } = authRef.current;
+            if (currentSession) {
+              router.replace("/dashboard");
+            } else {
+              router.replace("/getstarted");
+            }
           }, 2000);
         });
 
