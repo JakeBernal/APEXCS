@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { getAttemptHistory, PASS_THRESHOLD } from "../../lib/attempts";
 
@@ -33,6 +34,8 @@ export default function Stats() {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all"); // "all" | "professional" | "sub"
+  const [categoryFilter, setCategoryFilter] = useState("all"); // "all" | "__all_categories__" | subject name
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
 
   const loadHistory = useCallback(() => {
     setLoading(true);
@@ -49,16 +52,55 @@ export default function Stats() {
     }, [loadHistory])
   );
 
+  // Built from real attempt data rather than hardcoded, so it naturally
+  // adapts as more subjects get added to the question bank later.
+  const categoryOptions = React.useMemo(() => {
+    const subjectNames = Array.from(
+      new Set(attempts.map((a) => a.subject_title).filter(Boolean))
+    ).sort();
+    const hasAllCategoriesAttempts = attempts.some((a) => a.subject_title === null);
+
+    return [
+      { key: "all", label: "All Subjects" },
+      ...(hasAllCategoriesAttempts
+        ? [{ key: "__all_categories__", label: "All Categories" }]
+        : []),
+      ...subjectNames.map((name) => ({ key: name, label: name })),
+    ];
+  }, [attempts]);
+
   const filtered = attempts.filter((a) => {
-    if (filter === "all") return true;
-    return a.level === filter;
+    if (filter !== "all" && a.level !== filter) return false;
+    if (categoryFilter === "all") return true;
+    if (categoryFilter === "__all_categories__") return a.subject_title === null;
+    return a.subject_title === categoryFilter;
   });
+
+  // Growth/comparisons should only ever be made within the same subject
+  // scope + level — a Verbal Ability score isn't a fair comparison against
+  // a Numerical Ability score. subject_title is either a specific subject
+  // name, or null for "All Categories" attempts — null groups with null
+  // just like any other value, so "All Categories" naturally becomes its
+  // own comparison group with no special-casing needed.
+  const sameGroup = (a, b) =>
+    a.subject_title === b.subject_title && a.level === b.level;
+
+  const findPreviousInGroup = (list, index) => {
+    const current = list[index];
+    for (let i = index + 1; i < list.length; i++) {
+      if (sameGroup(list[i], current)) return list[i];
+    }
+    return null;
+  };
 
   const examsTaken = filtered.length;
   const passed = filtered.filter((a) => (a.score ?? 0) >= PASS_THRESHOLD).length;
   const bestScore = examsTaken > 0 ? Math.max(...filtered.map((a) => a.score ?? 0)) : 0;
-  const growth =
-    filtered.length >= 2 ? (filtered[0].score ?? 0) - (filtered[1].score ?? 0) : 0;
+
+  const mostRecentPrevInGroup = examsTaken > 0 ? findPreviousInGroup(filtered, 0) : null;
+  const growth = mostRecentPrevInGroup
+    ? (filtered[0].score ?? 0) - (mostRecentPrevInGroup.score ?? 0)
+    : null;
 
   return (
     <View style={styles.container}>
@@ -93,8 +135,7 @@ export default function Stats() {
 
           <View style={styles.summaryItem}>
             <Text style={styles.summaryNumber}>
-              {growth >= 0 ? "+" : ""}
-              {growth}%
+              {growth === null ? "—" : `${growth >= 0 ? "+" : ""}${growth}%`}
             </Text>
             <Text style={styles.summaryLabel}>Growth</Text>
           </View>
@@ -132,22 +173,78 @@ export default function Stats() {
           </TouchableOpacity>
         </View>
 
+        {/* CATEGORY FILTER (dropdown) */}
+        {categoryOptions.length > 1 && (
+          <View style={styles.dropdownWrapper}>
+            <TouchableOpacity
+              style={styles.dropdownButton}
+              onPress={() => setCategoryDropdownOpen((open) => !open)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.dropdownButtonText}>
+                {categoryOptions.find((o) => o.key === categoryFilter)?.label ??
+                  "All Subjects"}
+              </Text>
+              <Ionicons
+                name={categoryDropdownOpen ? "chevron-up" : "chevron-down"}
+                size={18}
+                color={COLORS.muted}
+              />
+            </TouchableOpacity>
+
+            {categoryDropdownOpen && (
+              <View style={styles.dropdownMenu}>
+                {categoryOptions.map((opt, i) => {
+                  const active = categoryFilter === opt.key;
+                  const isLast = i === categoryOptions.length - 1;
+                  return (
+                    <TouchableOpacity
+                      key={opt.key}
+                      style={[
+                        styles.dropdownItem,
+                        !isLast && styles.dropdownItemBorder,
+                        active && styles.dropdownItemActive,
+                      ]}
+                      onPress={() => {
+                        setCategoryFilter(opt.key);
+                        setCategoryDropdownOpen(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownItemText,
+                          active && styles.dropdownItemTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                      {active && (
+                        <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
+
         {loading && (
           <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
         )}
 
         {!loading && filtered.length === 0 && (
           <Text style={styles.emptyText}>
-            No exams taken yet. Take a mock exam to see it here.
+            No exams taken yet. Finish a mock exam to see it here.
           </Text>
         )}
 
         {!loading &&
           filtered.map((attempt, index) => {
             const passedThis = (attempt.score ?? 0) >= PASS_THRESHOLD;
-            const prevSameFilter = filtered[index + 1];
-            const vsPrev = prevSameFilter
-              ? (attempt.score ?? 0) - (prevSameFilter.score ?? 0)
+            const prevInGroup = findPreviousInGroup(filtered, index);
+            const vsPrev = prevInGroup
+              ? (attempt.score ?? 0) - (prevInGroup.score ?? 0)
               : null;
 
             return (
@@ -310,7 +407,70 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginHorizontal: 24,
     marginTop: 24,
+    marginBottom: 12,
+  },
+
+  dropdownWrapper: {
+    marginHorizontal: 24,
     marginBottom: 24,
+  },
+
+  dropdownButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E4E9F5",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+
+  dropdownButtonText: {
+    color: COLORS.text,
+    fontWeight: "700",
+    fontSize: 14,
+  },
+
+  dropdownMenu: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    marginTop: 8,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+
+  dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+
+  dropdownItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEF1F5",
+  },
+
+  dropdownItemActive: {
+    backgroundColor: "#F1F5FF",
+  },
+
+  dropdownItemText: {
+    color: "#555",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  dropdownItemTextActive: {
+    color: COLORS.primary,
+    fontWeight: "700",
   },
 
   activeFilter: {
