@@ -8,13 +8,18 @@ import {
   FlatList,
   ScrollView,
   Alert,
+  Modal,
+  Pressable,
 } from "react-native";
+
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { router, usePathname } from "expo-router";
-import BottomNav from "../components/bottomNav";
+import { router, usePathname, useFocusEffect } from "expo-router";
+
 import { useAuth } from "../../context/AuthContext";
-import { useFocusEffect } from "expo-router";
 import { getDashboardSummary } from "../../lib/attempts";
 
 const { width } = Dimensions.get("window");
@@ -52,28 +57,52 @@ const EXAM_DATE = "2026-05-18T08:00:00";
 function getCountdown(targetDate) {
   const now = new Date();
   const diff = new Date(targetDate) - now;
-  if (diff <= 0) return { days: 0, hours: 0, minutes: 0 };
+
+  if (diff <= 0) {
+    return {
+      days: 0,
+      hours: 0,
+      minutes: 0,
+    };
+  }
+
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-  const minutes = Math.floor((diff / (1000 * 60)) % 60);
-  return { days, hours, minutes };
+
+  const hours = Math.floor(
+    (diff / (1000 * 60 * 60)) % 24
+  );
+
+  const minutes = Math.floor(
+    (diff / (1000 * 60)) % 60
+  );
+
+  return {
+    days,
+    hours,
+    minutes,
+  };
 }
 
-// Maps a 0-100 readiness percent to a color band: red (struggling) up
-// through orange, yellow, to green (ready).
+// Maps readiness percentage to a color band.
 function getReadinessColor(percent) {
-  if (percent < 25) return "#EC6666";   // red
-  if (percent < 50) return "#F0AE65";   // orange
-  if (percent < 75) return "#D6DD55";   // yellow
-  return "#67C36D";                     // green
+  if (percent < 25) return "#EC6666";
+  if (percent < 50) return "#F0AE65";
+  if (percent < 75) return "#D6DD55";
+  return "#67C36D";
 }
 
 export default function Dashboard() {
   const { user, session, loading, signOut } = useAuth();
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState("home");
-  const [countdown, setCountdown] = useState(getCountdown(EXAM_DATE));
+
+  const [countdown, setCountdown] = useState(
+    getCountdown(EXAM_DATE)
+  );
+
+  // Hamburger menu
+  const [menuVisible, setMenuVisible] = useState(false);
+
   const pathname = usePathname();
   const flatListRef = useRef();
 
@@ -85,25 +114,26 @@ export default function Dashboard() {
     subjectReadiness: [],
   });
 
-  // Refetch whenever this tab regains focus, so a just-finished exam
-  // updates the dashboard immediately without a manual reload.
+  // Refetch whenever dashboard regains focus.
   useFocusEffect(
     React.useCallback(() => {
       getDashboardSummary().then(setSummary);
     }, [])
   );
 
-  // Route guard: bounce to login if there's no active session
+  // Route guard.
   useEffect(() => {
     if (!loading && !session) {
       router.replace("/login");
     }
   }, [loading, session]);
 
+  // Countdown timer.
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown(getCountdown(EXAM_DATE));
     }, 60000);
+
     return () => clearInterval(timer);
   }, []);
 
@@ -111,26 +141,45 @@ export default function Dashboard() {
     const index = Math.round(
       e.nativeEvent.contentOffset.x / (width - 50)
     );
+
     setCurrentIndex(index);
   };
 
-  const handleAvatarPress = () => {
-    Alert.alert("Account", undefined, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log out",
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-          router.replace("/login");
+  // Logout
+  const handleLogout = () => {
+    setMenuVisible(false);
+
+    Alert.alert(
+      "Log out",
+      "Are you sure you want to log out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
         },
-      },
-    ]);
+        {
+          text: "Log out",
+          style: "destructive",
+          onPress: async () => {
+            await signOut();
+            router.replace("/login");
+          },
+        },
+      ]
+    );
   };
 
-  // Falls back gracefully while the profile name loads, or if it's missing
+  // Menu navigation
+  const handleMenuNavigation = (route) => {
+    setMenuVisible(false);
+    router.push(route);
+  };
+
+  // Display name
   const displayName =
-    user?.user_metadata?.full_name || user?.email || "Welcome";
+    user?.user_metadata?.full_name ||
+    user?.email ||
+    "Welcome";
 
   const renderCard = ({ item, index }) => {
     const isActive = index === currentIndex;
@@ -138,134 +187,163 @@ export default function Dashboard() {
     if (item.type === "progress") {
       return (
         <LinearGradient
-        colors={[ "#386BF6", "#152b65"]}
-           start={{ x: 1, y: 0 }}
-           end={{ x: 1, y: 1 }}
-           style={[
-           styles.progressCard,
-          { transform: [{ scale: isActive ? 1 : 0.93 }] },
-          ]}>
-            
+          colors={["#386BF6", "#152B65"]}
+          start={{ x: 1, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[
+            styles.progressCard,
+            {
+              transform: [
+                {
+                  scale: isActive ? 1 : 0.93,
+                },
+              ],
+            },
+          ]}
+        >
           {/* TOP ROW */}
           <View style={styles.progressTopRow}>
-            <Text style={styles.cardLabel}>Exam Readiness</Text>
+            <Text style={styles.cardLabel}>
+              Exam Readiness
+            </Text>
+
             <View style={styles.examBadgeBlue}>
-              <Text style={styles.examBadgeBlueText}>Civil Service Exam</Text>
+              <Text style={styles.examBadgeBlueText}>
+                Civil Service Exam
+              </Text>
             </View>
           </View>
 
           {/* BIG SCORE */}
-          <Text style={styles.bigScore}>{summary.avgScore}%</Text>
-          <Text style={styles.avgScoreLabel}>Avg. Score</Text>
+          <Text style={styles.bigScore}>
+            {summary.avgScore}%
+          </Text>
+
+          <Text style={styles.avgScoreLabel}>
+            Avg. Score
+          </Text>
 
           {/* HORIZONTAL PROGRESS BAR */}
           <View style={styles.hBarBg}>
-            <View style={[styles.hBarFill, { width: `${summary.avgScore}%` }]} />
+            <View
+              style={[
+                styles.hBarFill,
+                {
+                  width: `${Math.min(
+                    summary.avgScore,
+                    100
+                  )}%`,
+                },
+              ]}
+            />
           </View>
-          <Text style={styles.hBarHint}>Keep going! You need 80% to pass.</Text>
+
+          <Text style={styles.hBarHint}>
+            Keep going! You need 80% to pass.
+          </Text>
 
           {/* STATS ROW */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statNum}>{countdown.days}</Text>
-              <Text style={styles.statUnit}>Days Left</Text>
+              <Text style={styles.statNum}>
+                {countdown.days}
+              </Text>
+
+              <Text style={styles.statUnit}>
+                Days Left
+              </Text>
             </View>
+
             <View style={styles.statDivider} />
+
             <View style={styles.statItem}>
-              <Text style={styles.statNum}>{summary.examsTaken}</Text>
-              <Text style={styles.statUnit}>Mock Exams</Text>
+              <Text style={styles.statNum}>
+                {summary.examsTaken}
+              </Text>
+
+              <Text style={styles.statUnit}>
+                Mock Exams
+              </Text>
             </View>
+
             <View style={styles.statDivider} />
+
             <View style={styles.statItem}>
-              <Text style={styles.statNum}>{summary.lastScore}%</Text>
-              <Text style={styles.statUnit}>Last Score</Text>
+              <Text style={styles.statNum}>
+                {summary.lastScore}%
+              </Text>
+
+              <Text style={styles.statUnit}>
+                Last Score
+              </Text>
             </View>
           </View>
         </LinearGradient>
       );
     }
 
-    return (
-      <View
-        style={[
-          styles.scheduleCard,
-          { transform: [{ scale: isActive ? 1 : 0.93 }] },
-        ]}
-      >
-        {/* TOP ROW */}
-        <View style={styles.scheduleTopRow}>
-          <Text style={styles.examLabel}>UPCOMING EXAM</Text>
-          <View style={styles.examBadge}>
-            <Text style={styles.examBadgeText}>Civil Service Exam</Text>
-          </View>
-        </View>
-
-        {/* DATE */}
-        <Text style={styles.examDateText}>May 18, 2026</Text>
-
-        {/* DIVIDER */}
-        <View style={styles.divider} />
-
-        {/* COUNTDOWN */}
-        <View style={styles.countdownRow}>
-          <Text style={styles.countdownLabel}>Time remaining</Text>
-          <View style={styles.countdownBlocks}>
-            <View style={styles.countBlock}>
-              <Text style={styles.countNum}>
-                {String(countdown.days).padStart(3, "0")}
-              </Text>
-              <Text style={styles.countUnit}>DAYS</Text>
-            </View>
-            <Text style={styles.countSep}>:</Text>
-            <View style={styles.countBlock}>
-              <Text style={styles.countNum}>
-                {String(countdown.hours).padStart(2, "0")}
-              </Text>
-              <Text style={styles.countUnit}>HRS</Text>
-            </View>
-            <Text style={styles.countSep}>:</Text>
-            <View style={styles.countBlock}>
-              <Text style={styles.countNum}>
-                {String(countdown.minutes).padStart(2, "0")}
-              </Text>
-              <Text style={styles.countUnit}>MIN</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
+    // Schedule card is currently disabled.
+    return null;
   };
 
-  // Avoid flashing dashboard content before the redirect kicks in
+  // Avoid flashing dashboard before redirect.
   if (loading || !session) {
-    return <View style={styles.container} />;
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar
+          style="dark"
+          backgroundColor={COLORS.bg}
+        />
+      </SafeAreaView>
+    );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView
+      style={styles.container}
+      edges={["top"]}
+    >
+      {/* STATUS BAR */}
+      <StatusBar
+        style="dark"
+        backgroundColor={COLORS.bg}
+      />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{
+          paddingBottom: 120,
+        }}
       >
-        {/* HEADER */}
+        {/* ================= HEADER ================= */}
+
         <View style={styles.header}>
           <View>
-            <Text style={styles.welcome}>Welcome Back</Text>
-            <Text style={styles.dashboard}>{displayName}</Text>
+            <Text style={styles.welcome}>
+              Welcome Back
+            </Text>
+
+            <Text style={styles.dashboard}>
+              {displayName}
+            </Text>
           </View>
 
-          <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconBtn}>
-              <Ionicons name="notifications-outline" size={22} color="#111" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.avatar} onPress={handleAvatarPress}>
-              <Ionicons name="person" size={18} color="#fff" />
-            </TouchableOpacity>
-          </View>
+          {/* HAMBURGER BUTTON */}
+          <TouchableOpacity
+            style={styles.menuButton}
+            activeOpacity={0.7}
+            onPress={() => setMenuVisible(true)}
+          >
+            <Ionicons
+              name="menu-outline"
+              size={28}
+              color={COLORS.text}
+            />
+          </TouchableOpacity>
         </View>
 
-        {/* HERO CAROUSEL */}
+        {/* ================= HERO CAROUSEL ================= */}
+
         <FlatList
           ref={flatListRef}
           data={cards}
@@ -275,45 +353,16 @@ export default function Dashboard() {
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
           onMomentumScrollEnd={onScroll}
-          contentContainerStyle={{ paddingHorizontal: 20 }}/>
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+          }}
+        />
 
-        {/* DOTS */}
-        <View style={styles.dotsContainer}>
-          {cards.map((_, i) => (
-            <View
-              key={i}
-              style={[styles.dot, currentIndex === i && styles.activeDot]}
-            />
-          ))}
-        </View>
+        {/* ================= SUBJECT READINESS ================= */}
 
-        {/* QUICK ACTIONS */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-
-        <View style={styles.quickGrid}>
-          <TouchableOpacity style={styles.quickCard}>
-            <View style={styles.quickIcon}>
-              <Ionicons name="book-outline" size={22} color={COLORS.primary} />
-            </View>
-            <Text style={styles.quickTitle}>Reviewers</Text>
-            <Text style={styles.quickDesc}>Study modules & lessons</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.quickCard}>
-            <View style={styles.quickIcon}>
-              <Ionicons
-                name="help-circle-outline"
-                size={22}
-                color={COLORS.primary}
-              />
-            </View>
-            <Text style={styles.quickTitle}>Mock Exam</Text>
-            <Text style={styles.quickDesc}>Practice exam questions</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Subject Readiness */}
-        <Text style={styles.sectionTitle}>Subject Readiness</Text>
+        <Text style={styles.sectionTitle}>
+          Subject Readiness
+        </Text>
 
         {summary.subjectReadiness.length === 0 && (
           <Text
@@ -323,47 +372,304 @@ export default function Dashboard() {
               marginBottom: 10,
             }}
           >
-            Take a mock exam to see your readiness per subject.
+            Take a mock exam to see your readiness
+            per subject.
           </Text>
         )}
 
         {summary.subjectReadiness.map((s) => {
           const color = getReadinessColor(s.percent);
+
           return (
-            <View key={s.title} style={styles.performanceCard}>
+            <View
+              key={s.title}
+              style={styles.performanceCard}
+            >
               <View style={styles.performanceRow}>
-                <Text style={styles.performanceLabel}>{s.title}</Text>
-                <Text style={[styles.performanceValue, { color }]}>{s.percent}%</Text>
+                <Text
+                  style={styles.performanceLabel}
+                >
+                  {s.title}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.performanceValue,
+                    {
+                      color,
+                    },
+                  ]}
+                >
+                  {s.percent}%
+                </Text>
               </View>
 
               <View style={styles.progressBarBg}>
                 <View
                   style={[
                     styles.progressBarFill,
-                    { width: `${s.percent}%`, backgroundColor: color },
+                    {
+                      width: `${Math.min(
+                        s.percent,
+                        100
+                      )}%`,
+                      backgroundColor: color,
+                    },
                   ]}
                 />
               </View>
             </View>
           );
         })}
-          
       </ScrollView>
 
-    </View>
+      {/* =====================================================
+          HAMBURGER MENU
+          ===================================================== */}
+
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() =>
+          setMenuVisible(false)
+        }
+      >
+        <View style={styles.menuOverlay}>
+          {/* BACKDROP */}
+          <Pressable
+            style={styles.menuBackdrop}
+            onPress={() => setMenuVisible(false)}
+          />
+
+          {/* SIDE MENU */}
+          <View style={styles.sideMenu}>
+            {/* MENU HEADER */}
+
+            <View style={styles.menuHeader}>
+              <View style={styles.menuProfileIcon}>
+                <Ionicons
+                  name="person"
+                  size={22}
+                  color="#fff"
+                />
+              </View>
+
+              <View style={styles.menuUserInfo}>
+                <Text style={styles.menuWelcome}>
+                  Welcome
+                </Text>
+
+                <Text
+                  style={styles.menuUserName}
+                  numberOfLines={1}
+                >
+                  {displayName}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() =>
+                  setMenuVisible(false)
+                }
+              >
+                <Ionicons
+                  name="close"
+                  size={22}
+                  color={COLORS.text}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.menuDivider} />
+
+            {/* MENU TITLE */}
+
+            <Text style={styles.menuSectionTitle}>
+              MENU
+            </Text>
+
+            {/* DASHBOARD */}
+
+            <TouchableOpacity
+              style={[
+                styles.menuItem,
+                styles.menuItemActive,
+              ]}
+              onPress={() =>
+                setMenuVisible(false)
+              }
+            >
+              <View
+                style={[
+                  styles.menuItemIcon,
+                  styles.menuItemIconActive,
+                ]}
+              >
+                <Ionicons
+                  name="home"
+                  size={21}
+                  color={COLORS.primary}
+                />
+              </View>
+
+              <Text
+                style={[
+                  styles.menuItemText,
+                  styles.menuItemTextActive,
+                ]}
+              >
+                Dashboard
+              </Text>
+            </TouchableOpacity>
+
+            {/* EXAM HISTORY */}
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() =>
+                handleMenuNavigation("/history")
+              }
+            >
+              <View style={styles.menuItemIcon}>
+                <Ionicons
+                  name="time-outline"
+                  size={21}
+                  color={COLORS.muted}
+                />
+              </View>
+
+              <Text style={styles.menuItemText}>
+                Exam History
+              </Text>
+            </TouchableOpacity>
+
+            {/* PROFILE */}
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() =>
+                handleMenuNavigation("/profile")
+              }
+            >
+              <View style={styles.menuItemIcon}>
+                <Ionicons
+                  name="person-outline"
+                  size={21}
+                  color={COLORS.muted}
+                />
+              </View>
+
+              <Text style={styles.menuItemText}>
+                Profile
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            {/* SETTINGS */}
+
+            <Text style={styles.menuSectionTitle}>
+              PREFERENCES
+            </Text>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() =>
+                handleMenuNavigation("/settings")
+              }
+            >
+              <View style={styles.menuItemIcon}>
+                <Ionicons
+                  name="settings-outline"
+                  size={21}
+                  color={COLORS.muted}
+                />
+              </View>
+
+              <Text style={styles.menuItemText}>
+                Settings
+              </Text>
+
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#B8C1D1"
+              />
+            </TouchableOpacity>
+
+            {/* ABOUT */}
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+
+                Alert.alert(
+                  "APEX-CS",
+                  "Assessment & Practice Exam for Civil Service"
+                );
+              }}
+            >
+              <View style={styles.menuItemIcon}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={21}
+                  color={COLORS.muted}
+                />
+              </View>
+
+              <Text style={styles.menuItemText}>
+                About APEX-CS
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.menuBottomSpace} />
+
+            {/* LOG OUT */}
+
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
+              <View style={styles.logoutIcon}>
+                <Ionicons
+                  name="log-out-outline"
+                  size={21}
+                  color="#E35D6A"
+                />
+              </View>
+
+              <Text style={styles.logoutText}>
+                Log Out
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.versionText}>
+              APEX-CS
+            </Text>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  /* ================= CONTAINER ================= */
+
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
-    paddingTop: 65,
   },
+
+  /* ================= HEADER ================= */
 
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.lg,
   },
@@ -379,31 +685,29 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
 
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  /* ================= HAMBURGER ================= */
 
-  iconBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#fff",
+  menuButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+
+    elevation: 2,
   },
 
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  /* ================= PROGRESS CARD ================= */
 
-  /* PROGRESS CARD */
   progressCard: {
     width: width - 50,
     backgroundColor: COLORS.primary,
@@ -473,6 +777,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
 
+  /* ================= STATS ================= */
+
   statsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -503,117 +809,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
   },
 
-  /* SCHEDULE CARD */
-  scheduleCard: {
-    width: width - 50,
-    height: 200,
-    backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.lg,
-    paddingHorizontal: 22,
-    paddingVertical: 20,
-    justifyContent: "space-between",
-  },
-
-  scheduleTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  examLabel: {
-    color: "#DCE6FF",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1.2,
-  },
-
-  examBadge: {
-    backgroundColor: "rgba(255,255,255,0.18)",
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 50,
-  },
-
-  examBadgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-
-  examDateText: {
-    color: "#fff",
-    fontSize: 30,
-    fontWeight: "900",
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.2)",
-  },
-
-  countdownRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  countdownLabel: {
-    color: "#DCE6FF",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-
-  countdownBlocks: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 4,
-  },
-
-  countBlock: {
-    alignItems: "center",
-  },
-
-  countNum: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "900",
-    lineHeight: 26,
-  },
-
-  countUnit: {
-    color: "#DCE6FF",
-    fontSize: 9,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    marginTop: 2,
-  },
-
-  countSep: {
-    color: "rgba(255,255,255,0.4)",
-    fontSize: 20,
-    fontWeight: "300",
-    marginTop: 2,
-  },
-
-  /* DOTS */
-  dotsContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 10,
-  },
-
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 10,
-    backgroundColor: "#C7D2FE",
-    marginHorizontal: 4,
-  },
-
-  activeDot: {
-    width: 20,
-    backgroundColor: COLORS.primary,
-  },
+  /* ================= SECTION ================= */
 
   sectionTitle: {
     fontSize: 20,
@@ -624,58 +820,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
   },
 
-  /* QUICK ACTIONS */
-  quickGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: SPACING.lg,
-  },
+  /* ================= PERFORMANCE ================= */
 
-  quickCard: {
-    width: "48%",
-    backgroundColor: "#fff",
-    borderRadius: RADIUS.md,
-    padding: 18,
-  },
-
-  quickIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 18,
-    backgroundColor: "#EEF4FF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-
-  quickTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-
-  quickDesc: {
-    color: COLORS.muted,
-    marginTop: 6,
-    fontSize: 13,
-  },
-
-  /* PERFORMANCE */
   performanceCard: {
     backgroundColor: "#fff",
     marginHorizontal: SPACING.lg,
+    marginBottom: 12,
     borderRadius: RADIUS.md,
-    padding: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+
+    elevation: 2,
   },
 
   performanceRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 2,
   },
 
   performanceLabel: {
     color: COLORS.text,
-     fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "700",
+    flex: 1,
+    marginRight: 12,
   },
 
   performanceValue: {
@@ -684,28 +862,189 @@ const styles = StyleSheet.create({
   },
 
   progressBarBg: {
-    height: 12,
+    height: 10,
     backgroundColor: "#E7ECF5",
     borderRadius: 20,
-    marginTop: 16,
+    marginTop: 12,
+    overflow: "hidden",
   },
 
   progressBarFill: {
-    width: "87%",
     height: "100%",
-    backgroundColor:"#6FC369",
     borderRadius: 20,
   },
 
-  performanceBottom: {
+  /* ================= MENU OVERLAY ================= */
+
+  menuOverlay: {
+    flex: 1,
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 12,
   },
 
-  performanceSmall: {
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.30)",
+  },
+
+  /* ================= SIDE MENU ================= */
+
+  sideMenu: {
+    width: width * 0.78,
+    backgroundColor: "#FFFFFF",
+    paddingTop: 55,
+    paddingHorizontal: 18,
+
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: {
+      width: -5,
+      height: 0,
+    },
+
+    elevation: 15,
+  },
+
+  /* ================= MENU HEADER ================= */
+
+  menuHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+
+  menuProfileIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  menuUserInfo: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+
+  menuWelcome: {
+    fontSize: 12,
     color: COLORS.muted,
   },
 
-  
+  menuUserName: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginTop: 2,
+  },
+
+  closeButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#F4F6FA",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  /* ================= MENU DIVIDER ================= */
+
+  menuDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: 14,
+  },
+
+  menuSectionTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: COLORS.muted,
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 4,
+    paddingHorizontal: 6,
+  },
+
+  /* ================= MENU ITEM ================= */
+
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 52,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    marginBottom: 4,
+  },
+
+  menuItemActive: {
+    backgroundColor: "#EEF3FF",
+  },
+
+  menuItemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#F5F7FA",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  menuItemIconActive: {
+    backgroundColor: "#DDE7FF",
+  },
+
+  menuItemText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+
+  menuItemTextActive: {
+    color: COLORS.primary,
+    fontWeight: "800",
+  },
+
+  /* ================= LOGOUT ================= */
+
+  menuBottomSpace: {
+    flex: 1,
+    minHeight: 20,
+  },
+
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3F4",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    minHeight: 52,
+    marginBottom: 10,
+  },
+
+  logoutIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#FFE2E5",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  logoutText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#E35D6A",
+  },
+
+  versionText: {
+    textAlign: "center",
+    fontSize: 10,
+    color: "#B8C1D1",
+    marginBottom: 18,
+  },
 });

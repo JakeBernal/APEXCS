@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 function formatTime(totalSeconds) {
@@ -24,6 +24,7 @@ function getMotivation(percent) {
 
 export default function ExamResultScreen({ results, onRetake, onHome }) {
   const {
+    mode,
     correct,
     wrong,
     skipped,
@@ -33,44 +34,96 @@ export default function ExamResultScreen({ results, onRetake, onHome }) {
     hasTimer,
   } = results;
 
+  const isFlashcards = mode === "flashcards";
+  const correctLabel = isFlashcards ? "Knew It" : "Correct";
+  const wrongLabel = isFlashcards ? "Didn't Know" : "Wrong";
+
   const percent = Math.round((correct / total) * 100);
+
+  // Entrance animation — fade + slide up, matching the flip-card's
+  // motion quality rather than just popping content in instantly.
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(16)).current;
+
+  // Count-up animation for the big percentage, 0 -> actual score.
+  const [displayPercent, setDisplayPercent] = useState(0);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    const duration = 700;
+    const startTime = Date.now();
+
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      setDisplayPercent(Math.round(progress * percent));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#4D79FF", "#2346B8"]} style={styles.header}>
-        <Text style={styles.completedLabel}>Exam Completed</Text>
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          <Text style={styles.completedLabel}>
+            {isFlashcards ? "Flashcards Completed" : "Exam Completed"}
+          </Text>
 
-        <Text style={styles.scoreFraction}>
-          {correct} out of {total}
-        </Text>
+          <Text style={styles.scoreFraction}>
+            {correct} out of {total}
+          </Text>
 
-        <Text style={styles.scorePercent}>{percent}%</Text>
+          <Text style={styles.scorePercent}>{displayPercent}%</Text>
 
-        <Text style={styles.motivation}>{getMotivation(percent)}</Text>
+          <Text style={styles.motivation}>{getMotivation(percent)}</Text>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{correct}</Text>
-            <Text style={styles.statLabel}>Correct</Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{wrong}</Text>
-            <Text style={styles.statLabel}>Wrong</Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{skipped}</Text>
-            <Text style={styles.statLabel}>Skipped</Text>
-          </View>
-
-          {hasTimer && (
+          <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{formatTime(timeLeft)}</Text>
-              <Text style={styles.statLabel}>Time Left</Text>
+              <Text style={styles.statNumber}>{correct}</Text>
+              <Text style={styles.statLabel}>{correctLabel}</Text>
             </View>
-          )}
-        </View>
+
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{wrong}</Text>
+              <Text style={styles.statLabel}>{wrongLabel}</Text>
+            </View>
+
+            {!isFlashcards && (
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{skipped}</Text>
+                <Text style={styles.statLabel}>Skipped</Text>
+              </View>
+            )}
+
+            {hasTimer && (
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{formatTime(timeLeft)}</Text>
+                <Text style={styles.statLabel}>Time Left</Text>
+              </View>
+            )}
+          </View>
+        </Animated.View>
       </LinearGradient>
 
       <ScrollView
@@ -112,9 +165,11 @@ export default function ExamResultScreen({ results, onRetake, onHome }) {
 
               <View style={styles.subjectFooterRow}>
                 <Text style={styles.subjectFooterText}>
-                  Correct: {s.correct}
+                  {correctLabel}: {s.correct}
                 </Text>
-                <Text style={styles.subjectFooterText}>Wrong: {s.wrong}</Text>
+                <Text style={styles.subjectFooterText}>
+                  {wrongLabel}: {s.wrong}
+                </Text>
               </View>
             </View>
           );

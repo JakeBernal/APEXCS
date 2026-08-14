@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -21,86 +21,235 @@ const COLORS = {
   muted: "#8A94A6",
 };
 
-const SUBJECT_COLORS = ["#67C36D", "#D6DD55", "#F0AE65", "#EC6666", "#7C9CF0"];
+const SUBJECT_COLORS = [
+  "#67C36D",
+  "#D6DD55",
+  "#F0AE65",
+  "#EC6666",
+  "#7C9CF0",
+];
 
 function formatDuration(seconds) {
-  if (!seconds && seconds !== 0) return "—";
+  if (seconds === null || seconds === undefined) return "—";
+
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
+
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
 export default function Stats() {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all"); // "all" | "professional" | "sub"
-  const [categoryFilter, setCategoryFilter] = useState("all"); // "all" | "__all_categories__" | subject name
+
+  // "all" | "professional" | "sub"
+  const [filter, setFilter] = useState("all");
+
+  // "__all_categories__" | subject name
+  const [categoryFilter, setCategoryFilter] = useState(
+    "__all_categories__"
+  );
+
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+
+  // --------------------------------------------------
+  // LOAD EXAM HISTORY
+  // --------------------------------------------------
 
   const loadHistory = useCallback(() => {
     setLoading(true);
+
     getAttemptHistory()
-      .then((data) => setAttempts(data.filter((a) => a.mode !== "flashcards")))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        const examAttempts = (data || [])
+          .filter((attempt) => attempt.mode !== "flashcards")
+          .sort((a, b) => {
+            const dateA = new Date(
+              a.created_at || a.completed_at || 0
+            ).getTime();
+
+            const dateB = new Date(
+              b.created_at || b.completed_at || 0
+            ).getTime();
+
+            return dateB - dateA;
+          });
+
+        setAttempts(examAttempts);
+      })
+      .catch((error) => {
+        console.error("Failed to load attempt history:", error);
+        setAttempts([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
-  // Refetch every time this tab comes into focus, so a just-finished
-  // exam shows up immediately without needing a manual app reload.
+  // Refresh history whenever this tab becomes active
   useFocusEffect(
     useCallback(() => {
       loadHistory();
     }, [loadHistory])
   );
 
-  // Built from real attempt data rather than hardcoded, so it naturally
-  // adapts as more subjects get added to the question bank later.
-  const categoryOptions = React.useMemo(() => {
+  // --------------------------------------------------
+  // CATEGORY DROPDOWN OPTIONS
+  // --------------------------------------------------
+
+  const categoryOptions = useMemo(() => {
     const subjectNames = Array.from(
-      new Set(attempts.map((a) => a.subject_title).filter(Boolean))
+      new Set(
+        attempts
+          .map((attempt) => attempt.subject_title)
+          .filter(
+            (subject) =>
+              subject !== null &&
+              subject !== undefined &&
+              subject !== ""
+          )
+      )
     ).sort();
-    const hasAllCategoriesAttempts = attempts.some((a) => a.subject_title === null);
 
     return [
-      { key: "all", label: "All Subjects" },
-      ...(hasAllCategoriesAttempts
-        ? [{ key: "__all_categories__", label: "All Categories" }]
-        : []),
-      ...subjectNames.map((name) => ({ key: name, label: name })),
+      {
+        key: "__all_categories__",
+        label: "All Categories",
+      },
+
+      ...subjectNames.map((name) => ({
+        key: name,
+        label: name,
+      })),
     ];
   }, [attempts]);
 
-  const filtered = attempts.filter((a) => {
-    if (filter !== "all" && a.level !== filter) return false;
-    if (categoryFilter === "all") return true;
-    if (categoryFilter === "__all_categories__") return a.subject_title === null;
-    return a.subject_title === categoryFilter;
-  });
+  // --------------------------------------------------
+  // FILTER ATTEMPTS
+  // --------------------------------------------------
 
-  // Growth/comparisons should only ever be made within the same subject
-  // scope + level — a Verbal Ability score isn't a fair comparison against
-  // a Numerical Ability score. subject_title is either a specific subject
-  // name, or null for "All Categories" attempts — null groups with null
-  // just like any other value, so "All Categories" naturally becomes its
-  // own comparison group with no special-casing needed.
-  const sameGroup = (a, b) =>
-    a.subject_title === b.subject_title && a.level === b.level;
+  const filtered = useMemo(() => {
+    return attempts.filter((attempt) => {
+      // Level filter
+      if (filter !== "all" && attempt.level !== filter) {
+        return false;
+      }
 
-  const findPreviousInGroup = (list, index) => {
-    const current = list[index];
-    for (let i = index + 1; i < list.length; i++) {
-      if (sameGroup(list[i], current)) return list[i];
-    }
-    return null;
-  };
+      // All Categories
+      if (categoryFilter === "__all_categories__") {
+        return true;
+      }
+
+      // Individual subject
+      return attempt.subject_title === categoryFilter;
+    });
+  }, [attempts, filter, categoryFilter]);
+
+  // --------------------------------------------------
+  // GROUP HELPERS
+  // --------------------------------------------------
+
+  /*
+   * Two exams belong to the same growth group when:
+   *
+   * 1. They have the same subject
+   * 2. They have the same professional level
+   *
+   * This prevents a Professional score from being
+   * compared against a Sub-Professional score.
+   */
+  const sameGroup = useCallback((a, b) => {
+    if (!a || !b) return false;
+
+    return (
+      (a.subject_title ?? null) ===
+        (b.subject_title ?? null) &&
+      a.level === b.level
+    );
+  }, []);
+
+  /*
+   * Finds the previous attempt belonging to the same
+   * subject + level group.
+   *
+   * The attempts are sorted newest -> oldest.
+   */
+  const findPreviousInGroup = useCallback(
+    (list, index) => {
+      const current = list[index];
+
+      if (!current) return null;
+
+      for (let i = index + 1; i < list.length; i++) {
+        if (sameGroup(list[i], current)) {
+          return list[i];
+        }
+      }
+
+      return null;
+    },
+    [sameGroup]
+  );
+
+  // --------------------------------------------------
+  // SUMMARY STATISTICS
+  // --------------------------------------------------
 
   const examsTaken = filtered.length;
-  const passed = filtered.filter((a) => (a.score ?? 0) >= PASS_THRESHOLD).length;
-  const bestScore = examsTaken > 0 ? Math.max(...filtered.map((a) => a.score ?? 0)) : 0;
 
-  const mostRecentPrevInGroup = examsTaken > 0 ? findPreviousInGroup(filtered, 0) : null;
-  const growth = mostRecentPrevInGroup
-    ? (filtered[0].score ?? 0) - (mostRecentPrevInGroup.score ?? 0)
+  const passed = filtered.filter(
+    (attempt) => (attempt.score ?? 0) >= PASS_THRESHOLD
+  ).length;
+
+  const bestScore =
+    examsTaken > 0
+      ? Math.max(
+          ...filtered.map((attempt) => attempt.score ?? 0)
+        )
+      : 0;
+
+  // --------------------------------------------------
+  // GROWTH
+  // --------------------------------------------------
+
+  /*
+   * Growth is based on the newest exam compared to the
+   * previous exam from the SAME:
+   *
+   * - subject
+   * - professional level
+   *
+   * This works even when "All Categories" is selected.
+   *
+   * Example:
+   *
+   * Professional - General Information - 70%
+   * Professional - General Information - 80%
+   *
+   * Growth = +10%
+   *
+   * It will NOT compare:
+   *
+   * Professional - General Information
+   * against
+   * Professional - Numerical Ability
+   */
+
+  const mostRecentAttempt = filtered[0];
+
+  const previousAttempt = mostRecentAttempt
+    ? findPreviousInGroup(filtered, 0)
     : null;
+
+  const growth =
+    mostRecentAttempt && previousAttempt
+      ? (mostRecentAttempt.score ?? 0) -
+        (previousAttempt.score ?? 0)
+      : null;
+
+  // --------------------------------------------------
+  // RENDER
+  // --------------------------------------------------
 
   return (
     <View style={styles.container}>
@@ -109,84 +258,169 @@ export default function Stats() {
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* TITLE */}
+
         <Text style={styles.title}>History</Text>
 
         {/* SUMMARY CARD */}
+
         <LinearGradient
           colors={["#4E7BFF", "#2B49B9"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.summaryCard}
         >
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryNumber}>{examsTaken}</Text>
-            <Text style={styles.summaryLabel}>Exam Taken</Text>
-          </View>
-
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryNumber}>{passed}</Text>
-            <Text style={styles.summaryLabel}>Passed</Text>
-          </View>
-
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryNumber}>{bestScore}%</Text>
-            <Text style={styles.summaryLabel}>Best Score</Text>
-          </View>
+          {/* EXAM TAKEN */}
 
           <View style={styles.summaryItem}>
             <Text style={styles.summaryNumber}>
-              {growth === null ? "—" : `${growth >= 0 ? "+" : ""}${growth}%`}
+              {examsTaken}
             </Text>
-            <Text style={styles.summaryLabel}>Growth</Text>
+
+            <Text style={styles.summaryLabel}>
+              Exam Taken
+            </Text>
+          </View>
+
+          {/* PASSED */}
+
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryNumber}>
+              {passed}
+            </Text>
+
+            <Text style={styles.summaryLabel}>
+              Passed
+            </Text>
+          </View>
+
+          {/* BEST SCORE */}
+
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryNumber}>
+              {bestScore}%
+            </Text>
+
+            <Text style={styles.summaryLabel}>
+              Best Score
+            </Text>
+          </View>
+
+          {/* GROWTH */}
+
+          <View style={styles.summaryItem}>
+            <Text
+              style={[
+                styles.summaryNumber,
+                growth !== null &&
+                  growth > 0 &&
+                  styles.growthPositive,
+                growth !== null &&
+                  growth < 0 &&
+                  styles.growthNegative,
+              ]}
+            >
+              {growth === null
+                ? "—"
+                : `${growth >= 0 ? "+" : ""}${growth}%`}
+            </Text>
+
+            <Text style={styles.summaryLabel}>
+              Growth
+            </Text>
           </View>
         </LinearGradient>
 
-        {/* FILTERS */}
+        {/* LEVEL FILTERS */}
+
         <View style={styles.filterRow}>
+          {/* ALL */}
+
           <TouchableOpacity
-            style={filter === "all" ? styles.activeFilter : styles.filter}
+            style={
+              filter === "all"
+                ? styles.activeFilter
+                : styles.filter
+            }
             onPress={() => setFilter("all")}
           >
-            <Text style={filter === "all" ? styles.activeFilterText : styles.filterText}>
+            <Text
+              style={
+                filter === "all"
+                  ? styles.activeFilterText
+                  : styles.filterText
+              }
+            >
               All
             </Text>
           </TouchableOpacity>
 
+          {/* PROFESSIONAL */}
+
           <TouchableOpacity
-            style={filter === "professional" ? styles.activeFilter : styles.filter}
+            style={
+              filter === "professional"
+                ? styles.activeFilter
+                : styles.filter
+            }
             onPress={() => setFilter("professional")}
           >
             <Text
-              style={filter === "professional" ? styles.activeFilterText : styles.filterText}
+              style={
+                filter === "professional"
+                  ? styles.activeFilterText
+                  : styles.filterText
+              }
             >
               Professional
             </Text>
           </TouchableOpacity>
 
+          {/* SUB-PROFESSIONAL */}
+
           <TouchableOpacity
-            style={filter === "sub" ? styles.activeFilter : styles.filter}
+            style={
+              filter === "sub"
+                ? styles.activeFilter
+                : styles.filter
+            }
             onPress={() => setFilter("sub")}
           >
-            <Text style={filter === "sub" ? styles.activeFilterText : styles.filterText}>
+            <Text
+              style={
+                filter === "sub"
+                  ? styles.activeFilterText
+                  : styles.filterText
+              }
+            >
               Sub-Professional
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* CATEGORY FILTER (dropdown) */}
+        {/* CATEGORY DROPDOWN */}
+
         {categoryOptions.length > 1 && (
           <View style={styles.dropdownWrapper}>
             <TouchableOpacity
               style={styles.dropdownButton}
-              onPress={() => setCategoryDropdownOpen((open) => !open)}
+              onPress={() =>
+                setCategoryDropdownOpen((open) => !open)
+              }
               activeOpacity={0.8}
             >
               <Text style={styles.dropdownButtonText}>
-                {categoryOptions.find((o) => o.key === categoryFilter)?.label ??
-                  "All Subjects"}
+                {categoryOptions.find(
+                  (option) =>
+                    option.key === categoryFilter
+                )?.label ?? "All Categories"}
               </Text>
+
               <Ionicons
-                name={categoryDropdownOpen ? "chevron-up" : "chevron-down"}
+                name={
+                  categoryDropdownOpen
+                    ? "chevron-up"
+                    : "chevron-down"
+                }
                 size={18}
                 color={COLORS.muted}
               />
@@ -194,32 +428,44 @@ export default function Stats() {
 
             {categoryDropdownOpen && (
               <View style={styles.dropdownMenu}>
-                {categoryOptions.map((opt, i) => {
-                  const active = categoryFilter === opt.key;
-                  const isLast = i === categoryOptions.length - 1;
+                {categoryOptions.map((option, index) => {
+                  const active =
+                    categoryFilter === option.key;
+
+                  const isLast =
+                    index === categoryOptions.length - 1;
+
                   return (
                     <TouchableOpacity
-                      key={opt.key}
+                      key={option.key}
                       style={[
                         styles.dropdownItem,
-                        !isLast && styles.dropdownItemBorder,
-                        active && styles.dropdownItemActive,
+                        !isLast &&
+                          styles.dropdownItemBorder,
+                        active &&
+                          styles.dropdownItemActive,
                       ]}
                       onPress={() => {
-                        setCategoryFilter(opt.key);
+                        setCategoryFilter(option.key);
                         setCategoryDropdownOpen(false);
                       }}
                     >
                       <Text
                         style={[
                           styles.dropdownItemText,
-                          active && styles.dropdownItemTextActive,
+                          active &&
+                            styles.dropdownItemTextActive,
                         ]}
                       >
-                        {opt.label}
+                        {option.label}
                       </Text>
+
                       {active && (
-                        <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+                        <Ionicons
+                          name="checkmark"
+                          size={18}
+                          color={COLORS.primary}
+                        />
                       )}
                     </TouchableOpacity>
                   );
@@ -229,63 +475,126 @@ export default function Stats() {
           </View>
         )}
 
+        {/* LOADING */}
+
         {loading && (
-          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+          <ActivityIndicator
+            size="large"
+            color={COLORS.primary}
+            style={{ marginTop: 20 }}
+          />
         )}
+
+        {/* EMPTY STATE */}
 
         {!loading && filtered.length === 0 && (
           <Text style={styles.emptyText}>
-            No exams taken yet. Finish a mock exam to see it here.
+            No exams taken yet. Finish a mock exam to see it
+            here.
           </Text>
         )}
 
+        {/* EXAM HISTORY */}
+
         {!loading &&
           filtered.map((attempt, index) => {
-            const passedThis = (attempt.score ?? 0) >= PASS_THRESHOLD;
-            const prevInGroup = findPreviousInGroup(filtered, index);
+            const passedThis =
+              (attempt.score ?? 0) >= PASS_THRESHOLD;
+
+            /*
+             * Find the previous exam of the SAME:
+             *
+             * - subject
+             * - professional level
+             */
+
+            const prevInGroup = findPreviousInGroup(
+              filtered,
+              index
+            );
+
             const vsPrev = prevInGroup
-              ? (attempt.score ?? 0) - (prevInGroup.score ?? 0)
+              ? (attempt.score ?? 0) -
+                (prevInGroup.score ?? 0)
               : null;
 
             return (
-              <View key={attempt.id} style={styles.card}>
-                {/* TOP */}
+              <View
+                key={
+                  attempt.id ??
+                  `${attempt.subject_title}-${attempt.level}-${index}`
+                }
+                style={styles.card}
+              >
+                {/* CARD HEADER */}
+
                 <View style={styles.cardHeader}>
+                  {/* SCORE */}
+
                   <View
                     style={[
                       styles.scoreBadge,
-                      { backgroundColor: passedThis ? "#E1F7E6" : "#FDE0E0" },
+                      {
+                        backgroundColor: passedThis
+                          ? "#E1F7E6"
+                          : "#FDE0E0",
+                      },
                     ]}
                   >
                     <Text
                       style={[
                         styles.scoreBadgeText,
-                        { color: passedThis ? "#2FA84F" : "#D44A4A" },
+                        {
+                          color: passedThis
+                            ? "#2FA84F"
+                            : "#D44A4A",
+                        },
                       ]}
                     >
                       {attempt.score ?? 0}%
                     </Text>
                   </View>
 
-                  <View style={{ flex: 1, marginLeft: 10 }}>
+                  {/* TITLE */}
+
+                  <View
+                    style={{
+                      flex: 1,
+                      marginLeft: 10,
+                    }}
+                  >
                     <Text style={styles.examTitle}>
-                      {attempt.subject_title || "All Categories"}
+                      {attempt.subject_title ||
+                        "All Categories"}
                     </Text>
+
                     <Text style={styles.examType}>
-                      {attempt.level === "professional" ? "Professional" : "Sub-Professional"}
+                      {attempt.level === "professional"
+                        ? "Professional"
+                        : "Sub-Professional"}
                     </Text>
                   </View>
+
+                  {/* PASSED / FAILED */}
 
                   <View
                     style={[
                       styles.failedBadge,
-                      { backgroundColor: passedThis ? "#DFF6E4" : "#FFE1E1" },
+                      {
+                        backgroundColor: passedThis
+                          ? "#DFF6E4"
+                          : "#FFE1E1",
+                      },
                     ]}
                   >
                     <Text
                       style={[
                         styles.failedText,
-                        { color: passedThis ? "#2FA84F" : "#D44A4A" },
+                        {
+                          color: passedThis
+                            ? "#2FA84F"
+                            : "#D44A4A",
+                        },
                       ]}
                     >
                       {passedThis ? "Passed" : "Failed"}
@@ -293,40 +602,89 @@ export default function Stats() {
                   </View>
                 </View>
 
-                {/* SUBJECTS */}
-                {(attempt.subject_breakdown || []).map((s, i) => {
-                  const percent = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
-                  return (
-                    <ProgressRow
-                      key={s.title}
-                      label={s.title}
-                      percent={percent}
-                      color={SUBJECT_COLORS[i % SUBJECT_COLORS.length]}
-                    />
-                  );
-                })}
+                {/* SUBJECT BREAKDOWN */}
 
-                {/* BOTTOM */}
+                {(attempt.subject_breakdown || []).map(
+                  (subject, subjectIndex) => {
+                    const percent =
+                      subject.total > 0
+                        ? Math.round(
+                            (subject.correct /
+                              subject.total) *
+                              100
+                          )
+                        : 0;
+
+                    return (
+                      <ProgressRow
+                        key={`${subject.title}-${subjectIndex}`}
+                        label={subject.title}
+                        percent={percent}
+                        color={
+                          SUBJECT_COLORS[
+                            subjectIndex %
+                              SUBJECT_COLORS.length
+                          ]
+                        }
+                      />
+                    );
+                  }
+                )}
+
+                {/* BOTTOM STATS */}
+
                 <View style={styles.bottomStats}>
-                  <View>
-                    <Text style={styles.bottomNumber}>
-                      {attempt.correct_count ?? 0}/{attempt.total_questions ?? 0}
-                    </Text>
-                    <Text style={styles.bottomLabel}>Score</Text>
-                  </View>
+                  {/* SCORE */}
 
                   <View>
                     <Text style={styles.bottomNumber}>
-                      {formatDuration(attempt.duration_seconds)}
+                      {attempt.correct_count ?? 0}/
+                      {attempt.total_questions ?? 0}
                     </Text>
-                    <Text style={styles.bottomLabel}>Time</Text>
+
+                    <Text style={styles.bottomLabel}>
+                      Score
+                    </Text>
                   </View>
+
+                  {/* TIME */}
 
                   <View>
                     <Text style={styles.bottomNumber}>
-                      {vsPrev === null ? "—" : `${vsPrev >= 0 ? "+" : ""}${vsPrev}%`}
+                      {formatDuration(
+                        attempt.duration_seconds
+                      )}
                     </Text>
-                    <Text style={styles.bottomLabel}>Vs Prev</Text>
+
+                    <Text style={styles.bottomLabel}>
+                      Time
+                    </Text>
+                  </View>
+
+                  {/* VS PREVIOUS */}
+
+                  <View>
+                    <Text
+                      style={[
+                        styles.bottomNumber,
+                        vsPrev !== null &&
+                          vsPrev > 0 &&
+                          styles.growthTextPositive,
+                        vsPrev !== null &&
+                          vsPrev < 0 &&
+                          styles.growthTextNegative,
+                      ]}
+                    >
+                      {vsPrev === null
+                        ? "—"
+                        : `${
+                            vsPrev >= 0 ? "+" : ""
+                          }${vsPrev}%`}
+                    </Text>
+
+                    <Text style={styles.bottomLabel}>
+                      Vs Prev
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -337,12 +695,24 @@ export default function Stats() {
   );
 }
 
+// --------------------------------------------------
+// PROGRESS ROW
+// --------------------------------------------------
+
 function ProgressRow({ label, percent, color }) {
   return (
     <View style={{ marginTop: 14 }}>
       <View style={styles.progressTop}>
-        <Text style={styles.progressLabel}>{label}</Text>
-        <Text style={[styles.progressPercent, { color }]}>
+        <Text style={styles.progressLabel}>
+          {label}
+        </Text>
+
+        <Text
+          style={[
+            styles.progressPercent,
+            { color },
+          ]}
+        >
           {percent}%
         </Text>
       </View>
@@ -361,6 +731,10 @@ function ProgressRow({ label, percent, color }) {
     </View>
   );
 }
+
+// --------------------------------------------------
+// STYLES
+// --------------------------------------------------
 
 const styles = StyleSheet.create({
   container: {
@@ -388,6 +762,7 @@ const styles = StyleSheet.create({
 
   summaryItem: {
     alignItems: "center",
+    minWidth: 65,
   },
 
   summaryNumber: {
@@ -398,9 +773,17 @@ const styles = StyleSheet.create({
 
   summaryLabel: {
     color: "#DDE6FF",
-    fontSize: 13,
+    fontSize: 10,
     marginTop: 4,
     textAlign: "center",
+  },
+
+  growthPositive: {
+    color: "#A7F3B5",
+  },
+
+  growthNegative: {
+    color: "#FFD0D0",
   },
 
   filterRow: {
@@ -442,7 +825,10 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
   },
 
   dropdownItem: {
@@ -593,6 +979,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
     color: COLORS.text,
+  },
+
+  growthTextPositive: {
+    color: "#2FA84F",
+  },
+
+  growthTextNegative: {
+    color: "#D44A4A",
   },
 
   bottomLabel: {

@@ -13,17 +13,17 @@ export default function Exams() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <TouchableOpacity style={styles.backBtn}>
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={() => router.back()}
+      >
         <Ionicons name="chevron-back" size={28} color="#111" />
       </TouchableOpacity>
 
       <Text style={styles.title}>Choose exam</Text>
 
       <Text style={styles.subtitle}>
-        For positions requiring a college degree.
-      </Text>
-      <Text style={styles.subtitle}>
-        Grants second-level government eligibility.
+        Choose the Civil Service Exam level you want to prepare for.
       </Text>
 
       {/* Professional Card */}
@@ -44,6 +44,7 @@ export default function Exams() {
         <Text style={styles.cardDescWhite}>
           For positions requiring a college degree.
         </Text>
+
         <Text style={styles.cardDescWhite}>
           Grants second-level government eligibility.
         </Text>
@@ -63,18 +64,23 @@ export default function Exams() {
             <Text style={styles.valueWhite}>80%</Text>
             <Text style={styles.labelWhite}>TO PASS</Text>
           </View>
+
           <TouchableOpacity
             style={styles.arrowWhite}
-            onPress={() => router.push("/examType")}>
-          <Ionicons
-            name="arrow-forward"
-            size={20}
-            color="#fff"/>
+            onPress={() =>
+              router.push("/examType?level=professional")
+            }
+          >
+            <Ionicons
+              name="arrow-forward"
+              size={20}
+              color="#fff"
+            />
           </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      {/* Sub Professional */}
+      {/* Sub-Professional Card */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>Sub-Professional</Text>
@@ -89,6 +95,7 @@ export default function Exams() {
         <Text style={styles.cardDesc}>
           For clerical and trades positions. Grants
         </Text>
+
         <Text style={styles.cardDesc}>
           first-level government eligibility.
         </Text>
@@ -109,7 +116,12 @@ export default function Exams() {
             <Text style={styles.label}>TO PASS</Text>
           </View>
 
-          <TouchableOpacity style={styles.arrowBlue}>
+          <TouchableOpacity
+            style={styles.arrowBlue}
+            onPress={() =>
+              router.push("/examType?level=sub")
+            }
+          >
             <Ionicons
               name="arrow-forward"
               size={20}
@@ -146,7 +158,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#8A8A8A",
     fontSize: 13,
+    marginTop: 6,
+    lineHeight: 20,
   },
+
+  /* PROFESSIONAL CARD */
 
   proCard: {
     marginTop: 35,
@@ -154,6 +170,8 @@ const styles = StyleSheet.create({
     padding: 22,
     elevation: 6,
   },
+
+  /* SUB-PROFESSIONAL CARD */
 
   card: {
     marginTop: 24,

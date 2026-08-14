@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -11,6 +11,55 @@ function formatTime(totalSeconds) {
   const s = totalSeconds % 60;
   const pad = (n) => String(n).padStart(2, "0");
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+function FlashcardIntro({ onStart, onBack }) {
+  return (
+    <View style={introStyles.container}>
+      <TouchableOpacity style={introStyles.backBtn} onPress={onBack}>
+        <Ionicons name="chevron-back" size={22} color="#386BF6" />
+      </TouchableOpacity>
+
+      <LinearGradient
+        colors={["#4D79FF", "#2346B8"]}
+        style={introStyles.iconCircle}
+      >
+        <Ionicons name="albums-outline" size={40} color="#fff" />
+      </LinearGradient>
+
+      <Text style={introStyles.title}>How Flashcards Work</Text>
+
+      <View style={introStyles.stepRow}>
+        <View style={introStyles.stepBadge}>
+          <Text style={introStyles.stepBadgeText}>1</Text>
+        </View>
+        <Text style={introStyles.stepText}>Tap the card to reveal the answer</Text>
+      </View>
+
+      <View style={introStyles.stepRow}>
+        <View style={[introStyles.stepBadge, { backgroundColor: "#3CC873" }]}>
+          <Ionicons name="checkmark" size={16} color="#fff" />
+        </View>
+        <Text style={introStyles.stepText}>
+          Tap <Text style={{ fontWeight: "800" }}>Knew It</Text> if you got it right
+        </Text>
+      </View>
+
+      <View style={introStyles.stepRow}>
+        <View style={[introStyles.stepBadge, { backgroundColor: "#F15B5B" }]}>
+          <Ionicons name="close" size={16} color="#fff" />
+        </View>
+        <Text style={introStyles.stepText}>
+          Tap <Text style={{ fontWeight: "800" }}>Didn't Know</Text> if you didn't
+        </Text>
+      </View>
+
+      <TouchableOpacity style={introStyles.startBtn} onPress={onStart}>
+        <Text style={introStyles.startBtnText}>Start</Text>
+        <Ionicons name="arrow-forward" size={18} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 export default function ExamQuestionScreen({
@@ -29,7 +78,9 @@ export default function ExamQuestionScreen({
   onTimeUp,
 }) {
   const [flipped, setFlipped] = useState(false);
+  const [showFlashcardIntro, setShowFlashcardIntro] = useState(mode === "flashcards");
   const timerRef = useRef(null);
+  const flipAnim = useRef(new Animated.Value(0)).current;
 
   const question = questions[currentIndex];
   const total = questions.length;
@@ -62,6 +113,7 @@ export default function ExamQuestionScreen({
 
   useEffect(() => {
     setFlipped(false);
+    flipAnim.setValue(0);
   }, [currentIndex]);
 
   const goPrev = () => {
@@ -69,6 +121,30 @@ export default function ExamQuestionScreen({
   };
 
   const goNext = () => {
+    if (isLast) {
+      onRequestSubmit();
+    } else {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const flipCard = () => {
+    Animated.timing(flipAnim, {
+      toValue: flipped ? 0 : 180,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+    setFlipped(!flipped);
+  };
+
+  // Self-assessed correctness for flashcards — stores "correct" / "wrong"
+  // per question, then advances (or submits, if it's the last card).
+  const handleFlashcardAnswer = (knewIt) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [question.id]: knewIt ? "correct" : "wrong",
+    }));
+
     if (isLast) {
       onRequestSubmit();
     } else {
@@ -104,9 +180,28 @@ export default function ExamQuestionScreen({
     return styles.choiceText;
   };
 
+  if (showFlashcardIntro) {
+    return (
+      <FlashcardIntro
+        onBack={onBack}
+        onStart={() => setShowFlashcardIntro(false)}
+      />
+    );
+  }
+
+  const frontRotate = flipAnim.interpolate({
+    inputRange: [0, 180],
+    outputRange: ["0deg", "180deg"],
+  });
+  const backRotate = flipAnim.interpolate({
+    inputRange: [0, 180],
+    outputRange: ["180deg", "360deg"],
+  });
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#4D79FF", "#2346B8"]} style={styles.header}>
+          
         <View style={styles.topRow}>
           <TouchableOpacity style={styles.backBtn} onPress={onBack}>
             <Ionicons name="chevron-back" size={22} color="#fff" />
@@ -152,28 +247,47 @@ export default function ExamQuestionScreen({
             </View>
           )}
         </View>
+       
       </LinearGradient>
-
       {mode === "flashcards" ? (
         <View style={styles.flashcardArea}>
-          <TouchableOpacity
-            style={styles.flashcard}
-            activeOpacity={0.9}
-            onPress={() => setFlipped((f) => !f)}
-          >
-            <Text style={styles.brand}>
-              APEX<Text style={{ color: "#7D8FB3" }}>CS</Text>
-            </Text>
+          <TouchableOpacity activeOpacity={0.9} onPress={flipCard}>
+            <View style={styles.flipContainer}>
+              {/* FRONT — question */}
+              <Animated.View
+                style={[
+                  styles.flashcard,
+                  styles.flashcardFace,
+                  { transform: [{ rotateY: frontRotate }] },
+                ]}
+              >
+                <Text style={styles.brand}>
+                  APEX<Text style={{ color: "#7D8FB3" }}>CS</Text>
+                </Text>
 
-            <Text style={styles.flashcardText}>
-              {flipped
-                ? question.choices[question.correctIndex]
-                : question.question}
-            </Text>
+                <Text style={styles.flashcardText}>{question.question}</Text>
 
-            <Text style={styles.flipHint}>
-              {flipped ? "Tap to see question" : "Tap to reveal answer"}
-            </Text>
+                <Text style={styles.flipHint}>Tap to reveal answer</Text>
+              </Animated.View>
+
+              {/* BACK — answer */}
+              <Animated.View
+                style={[
+                  styles.flashcard,
+                  styles.flashcardFace,
+                  styles.flashcardBack,
+                  { transform: [{ rotateY: backRotate }] },
+                ]}
+              >
+                <Text style={styles.answerLabel}>ANSWER</Text>
+
+                <Text style={styles.flashcardAnswerText}>
+                  {question.choices[question.correctIndex]}
+                </Text>
+
+                <Text style={styles.flipHint}>Tap to see question</Text>
+              </Animated.View>
+            </View>
           </TouchableOpacity>
         </View>
       ) : (
@@ -214,28 +328,130 @@ export default function ExamQuestionScreen({
       )}
 
       <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.navBtn, styles.navBtnOutline]}
-          onPress={goPrev}
-          disabled={currentIndex === 0}
-        >
-          <Ionicons name="chevron-back" size={16} color="#386BF6" />
-          <Text style={styles.navBtnOutlineText}>Previous</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.navBtn, styles.navBtnFilled]}
-          onPress={goNext}
-        >
-          <Text style={styles.navBtnFilledText}>
-            {isLast ? "Submit" : "Next"}
-          </Text>
-          <Ionicons name="chevron-forward" size={16} color="#fff" />
-        </TouchableOpacity>
+        {mode === "flashcards" ? (
+          <>
+            <TouchableOpacity
+              style={[styles.navBtn, styles.wrongBtn]}
+              onPress={() => handleFlashcardAnswer(false)}
+            >
+              <Ionicons name="close" size={18} color="#fff" />
+              <Text style={styles.wrongBtnText}>Didn't Know</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.navBtn, styles.correctBtn]}
+              onPress={() => handleFlashcardAnswer(true)}
+            >
+              <Ionicons name="checkmark" size={18} color="#fff" />
+              <Text style={styles.correctBtnText}>Knew It</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={[styles.navBtn, styles.navBtnOutline]}
+              onPress={goPrev}
+              disabled={currentIndex === 0}
+            >
+              <Ionicons name="chevron-back" size={16} color="#386BF6" />
+              <Text style={styles.navBtnOutlineText}>Previous</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.navBtn, styles.navBtnFilled]}
+              onPress={goNext}
+            >
+              <Text style={styles.navBtnFilledText}>
+                {isLast ? "Submit" : "Next"}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color="#fff" />
+            </TouchableOpacity>
+          </>
+        )}
+    
       </View>
     </View>
   );
 }
+
+const introStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    paddingHorizontal: 32,
+    paddingTop: 90,
+  },
+  backBtn: {
+    position: "absolute",
+    top: 60,
+    left: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#F1F5FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#14143A",
+    marginBottom: 30,
+  },
+  stepRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 18,
+  },
+  stepBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#386BF6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+  stepBadgeText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 13,
+  },
+  stepText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#4A5578",
+    lineHeight: 21,
+  },
+  startBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#386BF6",
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    borderRadius: 14,
+    gap: 8,
+    marginTop: 30,
+    width: "100%",
+  },
+  startBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -310,24 +526,40 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  /* FLASHCARDS */
+  /* flashcards */
 
   flashcardArea: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 30,
+    paddingHorizontal: 40,
+    paddingTop: 110,
+  },
+
+  flipContainer: {
+    minHeight: 320,
   },
 
   flashcard: {
     backgroundColor: "#fff",
     borderRadius: 24,
-    padding: 24,
-    minHeight: 220,
+    padding: 30,
+    minHeight: 320,
     shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 4,
+  },
+
+  flashcardFace: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    backfaceVisibility: "hidden",
+  },
+
+  flashcardBack: {
+    backgroundColor: "#EEF4FF",
   },
 
   brand: {
@@ -337,15 +569,32 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
+  answerLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#386BF6",
+    letterSpacing: 1,
+    marginBottom: 20,
+  },
+
   flashcardText: {
     fontSize: 17,
+    paddingTop: 30,
     fontWeight: "700",
     color: "#14143A",
     lineHeight: 26,
   },
 
+  flashcardAnswerText: {
+    fontSize: 19,
+    paddingTop: 20,
+    fontWeight: "800",
+    color: "#14143A",
+    lineHeight: 27,
+  },
+
   flipHint: {
-    marginTop: 24,
+    marginTop: 52,
     fontSize: 12,
     color: "#B7C1D6",
     textAlign: "center",
@@ -503,6 +752,26 @@ const styles = StyleSheet.create({
   },
 
   navBtnFilledText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+
+  wrongBtn: {
+    backgroundColor: "#F15B5B",
+  },
+
+  wrongBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+
+  correctBtn: {
+    backgroundColor: "#3CC873",
+  },
+
+  correctBtnText: {
     color: "#fff",
     fontWeight: "700",
     fontSize: 14,

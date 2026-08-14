@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import ExamQuestionScreen from "./ExamQuestionScreen";
@@ -7,8 +7,12 @@ import ExamResultScreen from "./ExamResultScreen";
 import SubmitExamModal from "./SubmitExamModal";
 import { buildQuestionSet } from "../lib/examData";
 import { saveAttempt } from "../lib/attempts";
+// import { ExamQuestionSkeleton } from "../components/ExamQuestionSkeleton";
 
+// Duration in seconds per level for the "timed" mode. Tweak as needed —
+// currently a placeholder, not tied to real per-subject question counts.
 const TIMED_DURATION = {
+  // professional: 3 * 60 * 60,
   professional: 3 * 60 * 60,
   sub: 2 * 60 * 60,
 };
@@ -94,7 +98,7 @@ export default function ExamSession({ subject, level, mode, onExit }) {
     setLoadingQuestions(true);
     setLoadError(null);
 
-    buildQuestionSet(subject?.title ?? null)
+    buildQuestionSet(subject?.title ?? null, level)
       .then((data) => {
         if (cancelled) return;
         setQuestions(data);
@@ -110,7 +114,7 @@ export default function ExamSession({ subject, level, mode, onExit }) {
     return () => {
       cancelled = true;
     };
-  }, [subject]);
+  }, [subject, level]);
 
   const [screen, setScreen] = useState("question"); // "question" | "result"
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -130,44 +134,70 @@ export default function ExamSession({ subject, level, mode, onExit }) {
     setTimeUp(false);
   };
 
-  const finalizeExam = () => {
-    let correct = 0;
-    let wrong = 0;
-    let skipped = 0;
+ const finalizeExam = (answersOverride = answers) => {
+  let correct = 0;
+  let wrong = 0;
+  let skipped = 0;
 
-    const bySubject = {};
+  const bySubject = {};
 
-    questions.forEach((q) => {
-      if (!bySubject[q.subjectTitle]) {
-        bySubject[q.subjectTitle] = { title: q.subjectTitle, correct: 0, wrong: 0, total: 0 };
-      }
-      bySubject[q.subjectTitle].total += 1;
+  questions.forEach((q) => {
+    if (!bySubject[q.subjectTitle]) {
+      bySubject[q.subjectTitle] = {
+        title: q.subjectTitle,
+        correct: 0,
+        wrong: 0,
+        total: 0,
+      };
+    }
 
-      const given = answers[q.id];
-      if (given === undefined) {
-        skipped += 1;
-      } else if (given === q.correctIndex) {
+    bySubject[q.subjectTitle].total += 1;
+
+    const given = answersOverride[q.id];
+
+    // No answer
+    if (given === undefined) {
+      skipped += 1;
+      return;
+    }
+
+    // FLASHCARDS
+    if (mode === "flashcards") {
+      if (given === "correct") {
         correct += 1;
         bySubject[q.subjectTitle].correct += 1;
-      } else {
+      } else if (given === "wrong") {
         wrong += 1;
         bySubject[q.subjectTitle].wrong += 1;
       }
-    });
 
-    setShowSubmitModal(false);
-    setScreen("result");
+      return;
+    }
 
-    return {
-      correct,
-      wrong,
-      skipped,
-      total: questions.length,
-      timeLeft,
-      hasTimer: mode === "timed",
-      subjectBreakdown: Object.values(bySubject),
-    };
+    // MULTIPLE CHOICE / EXAM
+    if (given === q.correctIndex) {
+      correct += 1;
+      bySubject[q.subjectTitle].correct += 1;
+    } else {
+      wrong += 1;
+      bySubject[q.subjectTitle].wrong += 1;
+    }
+  });
+
+  setShowSubmitModal(false);
+  setScreen("result");
+
+  return {
+    mode, // IMPORTANT
+    correct,
+    wrong,
+    skipped,
+    total: questions.length,
+    timeLeft,
+    hasTimer: mode === "timed",
+    subjectBreakdown: Object.values(bySubject),
   };
+};
 
   const [results, setResults] = useState(null);
 
@@ -216,13 +246,9 @@ export default function ExamSession({ subject, level, mode, onExit }) {
     }
   };
 
-  if (loadingQuestions) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#386BF6" />
-      </View>
-    );
-  }
+  // if (loadingQuestions) {
+  //   return <ExamQuestionSkeleton />;
+  // }
 
   if (loadError) {
     return (
@@ -238,7 +264,7 @@ export default function ExamSession({ subject, level, mode, onExit }) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
         <Text style={{ textAlign: "center", color: "#7D8FB3", fontSize: 15 }}>
-          No published questions found for "{subjectLabel}" yet.
+          No published questions found for Sub-Professional yet.
         </Text>
       </View>
     );
