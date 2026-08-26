@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+  Modal,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -9,7 +16,9 @@ function formatTime(totalSeconds) {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
+
   const pad = (n) => String(n).padStart(2, "0");
+
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
@@ -33,24 +42,41 @@ function FlashcardIntro({ onStart, onBack }) {
         <View style={introStyles.stepBadge}>
           <Text style={introStyles.stepBadgeText}>1</Text>
         </View>
-        <Text style={introStyles.stepText}>Tap the card to reveal the answer</Text>
-      </View>
 
-      <View style={introStyles.stepRow}>
-        <View style={[introStyles.stepBadge, { backgroundColor: "#3CC873" }]}>
-          <Ionicons name="checkmark" size={16} color="#fff" />
-        </View>
         <Text style={introStyles.stepText}>
-          Tap <Text style={{ fontWeight: "800" }}>Knew It</Text> if you got it right
+          Tap the card to reveal the answer
         </Text>
       </View>
 
       <View style={introStyles.stepRow}>
-        <View style={[introStyles.stepBadge, { backgroundColor: "#F15B5B" }]}>
+        <View
+          style={[
+            introStyles.stepBadge,
+            { backgroundColor: "#3CC873" },
+          ]}
+        >
+          <Ionicons name="checkmark" size={16} color="#fff" />
+        </View>
+
+        <Text style={introStyles.stepText}>
+          Tap <Text style={{ fontWeight: "800" }}>Knew It</Text> if you got it
+          right
+        </Text>
+      </View>
+
+      <View style={introStyles.stepRow}>
+        <View
+          style={[
+            introStyles.stepBadge,
+            { backgroundColor: "#F15B5B" },
+          ]}
+        >
           <Ionicons name="close" size={16} color="#fff" />
         </View>
+
         <Text style={introStyles.stepText}>
-          Tap <Text style={{ fontWeight: "800" }}>Didn't Know</Text> if you didn't
+          Tap <Text style={{ fontWeight: "800" }}>Didn't Know</Text> if you
+          didn't
         </Text>
       </View>
 
@@ -61,6 +87,165 @@ function FlashcardIntro({ onStart, onBack }) {
     </View>
   );
 }
+
+/* =========================================================
+   QUESTION NAVIGATOR
+========================================================= */
+
+function QuestionNavigator({
+  questions,
+  currentIndex,
+  answers,
+  skippedQuestions,
+  onSelectQuestion,
+  onClose,
+}) {
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.navigatorOverlay}>
+        <View style={styles.navigatorContainer}>
+          {/* HEADER */}
+          <View style={styles.navigatorHeader}>
+            <View>
+              <Text style={styles.navigatorTitle}>Questions</Text>
+              <Text style={styles.navigatorSubtitle}>
+                Jump to any question
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.navigatorCloseBtn}
+              onPress={onClose}
+            >
+              <Ionicons name="close" size={22} color="#4A5578" />
+            </TouchableOpacity>
+          </View>
+
+          {/* QUESTION GRID */}
+          <View style={styles.questionGrid}>
+            {questions.map((item, index) => {
+              const isCurrent = index === currentIndex;
+              const isAnswered = answers[item.id] !== undefined;
+              const isSkipped = skippedQuestions[item.id] === true;
+
+              let buttonStyle = styles.questionNumber;
+              let textStyle = styles.questionNumberText;
+              let icon = null;
+
+              if (isCurrent) {
+                buttonStyle = styles.questionNumberCurrent;
+                textStyle = styles.questionNumberTextCurrent;
+              } else if (isAnswered) {
+                buttonStyle = styles.questionNumberAnswered;
+                textStyle = styles.questionNumberTextAnswered;
+                icon = "checkmark";
+              } else if (isSkipped) {
+                buttonStyle = styles.questionNumberSkipped;
+                textStyle = styles.questionNumberTextSkipped;
+                icon = "alert";
+              }
+
+              return (
+                <TouchableOpacity
+                  key={item.id ?? index}
+                  style={buttonStyle}
+                  onPress={() => onSelectQuestion(index)}
+                  activeOpacity={0.75}
+                >
+                  {icon ? (
+                    <Ionicons
+                      name={icon}
+                      size={13}
+                      color={
+                        isAnswered
+                          ? "#2FA84F"
+                          : "#D44A4A"
+                      }
+                      style={styles.questionStatusIcon}
+                    />
+                  ) : null}
+
+                  <Text style={textStyle}>{index + 1}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* LEGEND */}
+          <View style={styles.navigatorLegend}>
+            <View style={styles.legendItem}>
+              <View
+                style={[
+                  styles.legendDot,
+                  styles.legendCurrent,
+                ]}
+              />
+              <Text style={styles.legendText}>Current</Text>
+            </View>
+
+            <View style={styles.legendItem}>
+              <View
+                style={[
+                  styles.legendDot,
+                  styles.legendAnswered,
+                ]}
+              >
+                <Ionicons
+                  name="checkmark"
+                  size={10}
+                  color="#2FA84F"
+                />
+              </View>
+              <Text style={styles.legendText}>Answered</Text>
+            </View>
+
+            <View style={styles.legendItem}>
+              <View
+                style={[
+                  styles.legendDot,
+                  styles.legendSkipped,
+                ]}
+              >
+                <Ionicons
+                  name="alert"
+                  size={10}
+                  color="#D44A4A"
+                />
+              </View>
+              <Text style={styles.legendText}>Skipped</Text>
+            </View>
+
+            <View style={styles.legendItem}>
+              <View
+                style={[
+                  styles.legendDot,
+                  styles.legendUnanswered,
+                ]}
+              />
+              <Text style={styles.legendText}>Unanswered</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.navigatorDoneBtn}
+            onPress={onClose}
+          >
+            <Text style={styles.navigatorDoneText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+/* =========================================================
+   MAIN SCREEN
+========================================================= */
 
 export default function ExamQuestionScreen({
   mode, // "flashcards" | "timed" | "review"
@@ -78,8 +263,30 @@ export default function ExamQuestionScreen({
   onTimeUp,
 }) {
   const [flipped, setFlipped] = useState(false);
-  const [showFlashcardIntro, setShowFlashcardIntro] = useState(mode === "flashcards");
+
+  const [showFlashcardIntro, setShowFlashcardIntro] = useState(
+    mode === "flashcards"
+  );
+
+  /*
+   * Tracks questions that the user deliberately skipped.
+   *
+   * Example:
+   * {
+   *   "question-id-1": true,
+   *   "question-id-7": true
+   * }
+   */
+  const [skippedQuestions, setSkippedQuestions] = useState({});
+
+  /*
+   * Controls the question navigator modal.
+   */
+  const [showQuestionNavigator, setShowQuestionNavigator] =
+    useState(false);
+
   const timerRef = useRef(null);
+
   const flipAnim = useRef(new Animated.Value(0)).current;
 
   const question = questions[currentIndex];
@@ -88,7 +295,10 @@ export default function ExamQuestionScreen({
   const progress = ((currentIndex + 1) / total) * 100;
   const selected = answers[question.id];
 
-  // Countdown for timed mode only
+  /* =========================================================
+     TIMER
+  ========================================================= */
+
   useEffect(() => {
     if (mode !== "timed") return;
 
@@ -96,37 +306,87 @@ export default function ExamQuestionScreen({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
+
           if (onTimeUp) {
             onTimeUp();
           } else {
             onRequestSubmit();
           }
+
           return 0;
         }
+
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timerRef.current);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+
+  /* =========================================================
+     RESET FLASHCARD WHEN QUESTION CHANGES
+  ========================================================= */
 
   useEffect(() => {
     setFlipped(false);
     flipAnim.setValue(0);
   }, [currentIndex]);
 
-  const goPrev = () => {
-    if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
-  };
+  /* =========================================================
+     PREVIOUS
+  ========================================================= */
 
-  const goNext = () => {
-    if (isLast) {
-      onRequestSubmit();
-    } else {
-      setCurrentIndex(currentIndex + 1);
+  const goPrev = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
     }
   };
+
+  /* =========================================================
+     NEXT
+  ========================================================= */
+
+  const goNext = () => {
+    /*
+     * If this is the last question,
+     * submit the exam.
+     */
+    if (isLast) {
+      onRequestSubmit();
+      return;
+    }
+
+    /*
+     * If the current question has not been answered,
+     * mark it as skipped.
+     *
+     * This allows the question navigator to show
+     * that the user intentionally left it unanswered.
+     */
+    if (answers[question.id] === undefined) {
+      setSkippedQuestions((prev) => ({
+        ...prev,
+        [question.id]: true,
+      }));
+    }
+
+    setCurrentIndex(currentIndex + 1);
+  };
+
+  /* =========================================================
+     QUESTION NAVIGATOR
+  ========================================================= */
+
+  const jumpToQuestion = (index) => {
+    setCurrentIndex(index);
+    setShowQuestionNavigator(false);
+  };
+
+  /* =========================================================
+     FLASHCARD FLIP
+  ========================================================= */
 
   const flipCard = () => {
     Animated.timing(flipAnim, {
@@ -134,11 +394,14 @@ export default function ExamQuestionScreen({
       duration: 400,
       useNativeDriver: true,
     }).start();
+
     setFlipped(!flipped);
   };
 
-  // Self-assessed correctness for flashcards — stores "correct" / "wrong"
-  // per question, then advances (or submits, if it's the last card).
+  /* =========================================================
+     FLASHCARD ANSWER
+  ========================================================= */
+
   const handleFlashcardAnswer = (knewIt) => {
     setAnswers((prev) => ({
       ...prev,
@@ -152,33 +415,89 @@ export default function ExamQuestionScreen({
     }
   };
 
+  /* =========================================================
+     MULTIPLE CHOICE
+  ========================================================= */
+
   const selectChoice = (choiceIndex) => {
-    // In review mode, lock the answer once picked so feedback stays visible
-    if (mode === "review" && selected !== undefined) return;
-    setAnswers((prev) => ({ ...prev, [question.id]: choiceIndex }));
+    /*
+     * In review mode, lock the answer once picked
+     * so feedback stays visible.
+     */
+    if (mode === "review" && selected !== undefined) {
+      return;
+    }
+
+    setAnswers((prev) => ({
+      ...prev,
+      [question.id]: choiceIndex,
+    }));
+
+    /*
+     * If the user previously skipped this question,
+     * remove it from skippedQuestions once they answer it.
+     */
+    if (skippedQuestions[question.id]) {
+      setSkippedQuestions((prev) => {
+        const updated = { ...prev };
+        delete updated[question.id];
+        return updated;
+      });
+    }
   };
 
+  /* =========================================================
+     CHOICE STYLING
+  ========================================================= */
+
   const getChoiceStyle = (choiceIndex) => {
-    if (mode !== "review" || selected === undefined) {
-      return selected === choiceIndex ? styles.choiceSelected : styles.choice;
+    if (
+      mode !== "review" ||
+      selected === undefined
+    ) {
+      return selected === choiceIndex
+        ? styles.choiceSelected
+        : styles.choice;
     }
-    // Review mode feedback after an answer is chosen
-    if (choiceIndex === question.correctIndex) return styles.choiceCorrect;
-    if (choiceIndex === selected) return styles.choiceWrong;
+
+    /*
+     * Review mode feedback after an answer is chosen.
+     */
+
+    if (choiceIndex === question.correctIndex) {
+      return styles.choiceCorrect;
+    }
+
+    if (choiceIndex === selected) {
+      return styles.choiceWrong;
+    }
+
     return styles.choice;
   };
 
   const getChoiceTextStyle = (choiceIndex) => {
-    if (mode !== "review" || selected === undefined) {
+    if (
+      mode !== "review" ||
+      selected === undefined
+    ) {
       return selected === choiceIndex
         ? styles.choiceTextSelected
         : styles.choiceText;
     }
-    if (choiceIndex === question.correctIndex || choiceIndex === selected) {
+
+    if (
+      choiceIndex === question.correctIndex ||
+      choiceIndex === selected
+    ) {
       return styles.choiceTextSelected;
     }
+
     return styles.choiceText;
   };
+
+  /* =========================================================
+     FLASHCARD INTRO
+  ========================================================= */
 
   if (showFlashcardIntro) {
     return (
@@ -189,36 +508,100 @@ export default function ExamQuestionScreen({
     );
   }
 
+  /* =========================================================
+     FLIP ANIMATION
+  ========================================================= */
+
   const frontRotate = flipAnim.interpolate({
     inputRange: [0, 180],
     outputRange: ["0deg", "180deg"],
   });
+
   const backRotate = flipAnim.interpolate({
     inputRange: [0, 180],
     outputRange: ["180deg", "360deg"],
   });
 
+  /* =========================================================
+     MAIN UI
+  ========================================================= */
+
   return (
     <View style={styles.container}>
-      <LinearGradient colors={["#4D79FF", "#2346B8"]} style={styles.header}>
-          
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+
+      <LinearGradient
+        colors={["#4D79FF", "#2346B8"]}
+        style={styles.header}
+      >
         <View style={styles.topRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-            <Ionicons name="chevron-back" size={22} color="#fff" />
+          {/* BACK BUTTON */}
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={22}
+              color="#fff"
+            />
           </TouchableOpacity>
 
-          <View style={{ flex: 1, alignItems: "center" }}>
-            <Text style={styles.headerTitle}>{subjectLabel}</Text>
-            <Text style={styles.headerSubtitle}>{levelLabel}</Text>
+          {/* TITLE */}
+          <View
+            style={{
+              flex: 1,
+              alignItems: "center",
+            }}
+          >
+            <Text style={styles.headerTitle}>
+              {subjectLabel}
+            </Text>
+
+            <Text style={styles.headerSubtitle}>
+              {levelLabel}
+            </Text>
           </View>
 
-          <View style={{ width: 42 }} />
+          {/* QUESTION NAVIGATOR BUTTON */}
+          {mode !== "flashcards" ? (
+            <TouchableOpacity
+              style={styles.questionNavigatorBtn}
+              onPress={() =>
+                setShowQuestionNavigator(true)
+              }
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="grid-outline"
+                size={20}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          ) : (
+            /*
+             * Keep the same width as the navigator button
+             * so the title stays perfectly centered.
+             */
+            <View style={styles.headerRightPlaceholder} />
+          )}
         </View>
 
+        {/* PROGRESS */}
         <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
+          <View
+            style={[
+              styles.progressFill,
+              {
+                width: `${progress}%`,
+              },
+            ]}
+          />
         </View>
 
+        {/* META */}
         <View style={styles.metaRow}>
           <View style={styles.pill}>
             <Text style={styles.pillText}>
@@ -228,8 +611,18 @@ export default function ExamQuestionScreen({
 
           {mode === "timed" && (
             <View style={styles.pill}>
-              <Ionicons name="time-outline" size={13} color="#fff" />
-              <Text style={[styles.pillText, { marginLeft: 4 }]}>
+              <Ionicons
+                name="time-outline"
+                size={13}
+                color="#fff"
+              />
+
+              <Text
+                style={[
+                  styles.pillText,
+                  { marginLeft: 4 },
+                ]}
+              >
                 {formatTime(timeLeft)}
               </Text>
             </View>
@@ -237,143 +630,299 @@ export default function ExamQuestionScreen({
 
           {mode === "flashcards" && (
             <View style={styles.pill}>
-              <Text style={styles.pillText}>Flashcards</Text>
+              <Text style={styles.pillText}>
+                Flashcards
+              </Text>
             </View>
           )}
 
           {mode === "review" && (
             <View style={styles.pill}>
-              <Text style={styles.pillText}>Review</Text>
+              <Text style={styles.pillText}>
+                Review
+              </Text>
             </View>
           )}
         </View>
-       
       </LinearGradient>
+
+      {/* =====================================================
+          QUESTION NAVIGATOR MODAL
+      ===================================================== */}
+
+      {showQuestionNavigator && (
+        <QuestionNavigator
+          questions={questions}
+          currentIndex={currentIndex}
+          answers={answers}
+          skippedQuestions={skippedQuestions}
+          onSelectQuestion={jumpToQuestion}
+          onClose={() =>
+            setShowQuestionNavigator(false)
+          }
+        />
+      )}
+
+      {/* =====================================================
+          FLASHCARD
+      ===================================================== */}
+
       {mode === "flashcards" ? (
         <View style={styles.flashcardArea}>
-          <TouchableOpacity activeOpacity={0.9} onPress={flipCard}>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={flipCard}
+          >
             <View style={styles.flipContainer}>
-              {/* FRONT — question */}
+              {/* FRONT — QUESTION */}
               <Animated.View
                 style={[
                   styles.flashcard,
                   styles.flashcardFace,
-                  { transform: [{ rotateY: frontRotate }] },
+                  {
+                    transform: [
+                      {
+                        rotateY: frontRotate,
+                      },
+                    ],
+                  },
                 ]}
               >
                 <Text style={styles.brand}>
-                  APEX<Text style={{ color: "#7D8FB3" }}>CS</Text>
+                  APEX
+                  <Text
+                    style={{
+                      color: "#7D8FB3",
+                    }}
+                  >
+                    CS
+                  </Text>
                 </Text>
 
-                <Text style={styles.flashcardText}>{question.question}</Text>
+                <Text style={styles.flashcardText}>
+                  {question.question}
+                </Text>
 
-                <Text style={styles.flipHint}>Tap to reveal answer</Text>
+                <Text style={styles.flipHint}>
+                  Tap to reveal answer
+                </Text>
               </Animated.View>
 
-              {/* BACK — answer */}
+              {/* BACK — ANSWER */}
               <Animated.View
                 style={[
                   styles.flashcard,
                   styles.flashcardFace,
                   styles.flashcardBack,
-                  { transform: [{ rotateY: backRotate }] },
+                  {
+                    transform: [
+                      {
+                        rotateY: backRotate,
+                      },
+                    ],
+                  },
                 ]}
               >
-                <Text style={styles.answerLabel}>ANSWER</Text>
-
-                <Text style={styles.flashcardAnswerText}>
-                  {question.choices[question.correctIndex]}
+                <Text style={styles.answerLabel}>
+                  ANSWER
                 </Text>
 
-                <Text style={styles.flipHint}>Tap to see question</Text>
+                <Text
+                  style={
+                    styles.flashcardAnswerText
+                  }
+                >
+                  {
+                    question.choices[
+                      question.correctIndex
+                    ]
+                  }
+                </Text>
+
+                <Text style={styles.flipHint}>
+                  Tap to see question
+                </Text>
               </Animated.View>
             </View>
           </TouchableOpacity>
         </View>
       ) : (
+        /* =====================================================
+           MULTIPLE CHOICE
+        ===================================================== */
+
         <View style={styles.questionArea}>
-          <Text style={styles.questionText}>{question.question}</Text>
+          <Text style={styles.questionText}>
+            {question.question}
+          </Text>
 
           <View style={styles.choicesWrapper}>
             {question.choices.map((choice, i) => (
               <TouchableOpacity
                 key={i}
                 style={getChoiceStyle(i)}
-                onPress={() => selectChoice(i)}
+                onPress={() =>
+                  selectChoice(i)
+                }
                 activeOpacity={0.8}
               >
                 <View style={styles.letterCircle}>
-                  <Text style={styles.letterText}>{LETTERS[i]}</Text>
+                  <Text
+                    style={styles.letterText}
+                  >
+                    {LETTERS[i]}
+                  </Text>
                 </View>
-                <Text style={getChoiceTextStyle(i)}>{choice}</Text>
+
+                <Text
+                  style={getChoiceTextStyle(i)}
+                >
+                  {choice}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {mode === "review" && selected !== undefined && (
-            <View style={styles.explanationBox}>
-              <Text style={styles.explanationTitle}>
-                {selected === question.correctIndex
-                  ? "Correct!"
-                  : `Not quite — the correct answer is ${LETTERS[question.correctIndex]}. ${question.choices[question.correctIndex]}`}
-              </Text>
-              {!!question.explanation && (
-                <Text style={styles.explanationText}>
-                  {question.explanation}
+          {/* REVIEW EXPLANATION */}
+          {mode === "review" &&
+            selected !== undefined && (
+              <View style={styles.explanationBox}>
+                <Text
+                  style={styles.explanationTitle}
+                >
+                  {selected ===
+                  question.correctIndex
+                    ? "Correct!"
+                    : `Not quite — the correct answer is ${
+                        LETTERS[
+                          question.correctIndex
+                        ]
+                      }. ${
+                        question.choices[
+                          question.correctIndex
+                        ]
+                      }`}
                 </Text>
-              )}
-            </View>
-          )}
+
+                {!!question.explanation && (
+                  <Text
+                    style={styles.explanationText}
+                  >
+                    {question.explanation}
+                  </Text>
+                )}
+              </View>
+            )}
         </View>
       )}
 
-      <View style={styles.footer}>
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
 
+      <View style={styles.footer}>
         {mode === "flashcards" ? (
           <>
+            {/* DIDN'T KNOW */}
             <TouchableOpacity
-              style={[styles.navBtn, styles.wrongBtn]}
-              onPress={() => handleFlashcardAnswer(false)}
+              style={[
+                styles.navBtn,
+                styles.wrongBtn,
+              ]}
+              onPress={() =>
+                handleFlashcardAnswer(false)
+              }
             >
-              <Ionicons name="close" size={18} color="#fff" />
-              <Text style={styles.wrongBtnText}>Didn't Know</Text>
+              <Ionicons
+                name="close"
+                size={18}
+                color="#fff"
+              />
+
+              <Text style={styles.wrongBtnText}>
+                Didn't Know
+              </Text>
             </TouchableOpacity>
 
+            {/* KNEW IT */}
             <TouchableOpacity
-              style={[styles.navBtn, styles.correctBtn]}
-              onPress={() => handleFlashcardAnswer(true)}
+              style={[
+                styles.navBtn,
+                styles.correctBtn,
+              ]}
+              onPress={() =>
+                handleFlashcardAnswer(true)
+              }
             >
-              <Ionicons name="checkmark" size={18} color="#fff" />
-              <Text style={styles.correctBtnText}>Knew It</Text>
+              <Ionicons
+                name="checkmark"
+                size={18}
+                color="#fff"
+              />
+
+              <Text style={styles.correctBtnText}>
+                Knew It
+              </Text>
             </TouchableOpacity>
           </>
         ) : (
           <>
+            {/* PREVIOUS */}
             <TouchableOpacity
-              style={[styles.navBtn, styles.navBtnOutline]}
+              style={[
+                styles.navBtn,
+                styles.navBtnOutline,
+              ]}
               onPress={goPrev}
               disabled={currentIndex === 0}
             >
-              <Ionicons name="chevron-back" size={16} color="#386BF6" />
-              <Text style={styles.navBtnOutlineText}>Previous</Text>
+              <Ionicons
+                name="chevron-back"
+                size={16}
+                color="#386BF6"
+              />
+
+              <Text
+                style={
+                  styles.navBtnOutlineText
+                }
+              >
+                Previous
+              </Text>
             </TouchableOpacity>
 
+            {/* NEXT / SUBMIT */}
             <TouchableOpacity
-              style={[styles.navBtn, styles.navBtnFilled]}
+              style={[
+                styles.navBtn,
+                styles.navBtnFilled,
+              ]}
               onPress={goNext}
             >
-              <Text style={styles.navBtnFilledText}>
+              <Text
+                style={
+                  styles.navBtnFilledText
+                }
+              >
                 {isLast ? "Submit" : "Next"}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color="#fff" />
+
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color="#fff"
+              />
             </TouchableOpacity>
           </>
         )}
-    
       </View>
     </View>
   );
 }
+
+/* =========================================================
+   FLASHCARD INTRO STYLES
+========================================================= */
 
 const introStyles = StyleSheet.create({
   container: {
@@ -383,6 +932,7 @@ const introStyles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 90,
   },
+
   backBtn: {
     position: "absolute",
     top: 60,
@@ -394,6 +944,7 @@ const introStyles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   iconCircle: {
     width: 88,
     height: 88,
@@ -402,18 +953,21 @@ const introStyles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
   },
+
   title: {
     fontSize: 22,
     fontWeight: "800",
     color: "#14143A",
     marginBottom: 30,
   },
+
   stepRow: {
     flexDirection: "row",
     alignItems: "center",
     width: "100%",
     marginBottom: 18,
   },
+
   stepBadge: {
     width: 28,
     height: 28,
@@ -423,17 +977,20 @@ const introStyles = StyleSheet.create({
     alignItems: "center",
     marginRight: 14,
   },
+
   stepBadgeText: {
     color: "#fff",
     fontWeight: "800",
     fontSize: 13,
   },
+
   stepText: {
     flex: 1,
     fontSize: 15,
     color: "#4A5578",
     lineHeight: 21,
   },
+
   startBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -446,6 +1003,7 @@ const introStyles = StyleSheet.create({
     marginTop: 30,
     width: "100%",
   },
+
   startBtnText: {
     color: "#fff",
     fontWeight: "700",
@@ -453,11 +1011,19 @@ const introStyles = StyleSheet.create({
   },
 });
 
+/* =========================================================
+   MAIN STYLES
+========================================================= */
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F7F9FC",
   },
+
+  /* =======================================================
+     HEADER
+  ======================================================= */
 
   header: {
     paddingTop: 60,
@@ -478,6 +1044,20 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.15)",
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  questionNavigatorBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  headerRightPlaceholder: {
+    width: 42,
+    height: 42,
   },
 
   headerTitle: {
@@ -526,7 +1106,209 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  /* flashcards */
+  /* =======================================================
+     QUESTION NAVIGATOR MODAL
+  ======================================================= */
+
+  navigatorOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(20,20,58,0.45)",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+
+  navigatorContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 22,
+    padding: 20,
+    maxHeight: "80%",
+  },
+
+  navigatorHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 22,
+  },
+
+  navigatorTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#14143A",
+  },
+
+  navigatorSubtitle: {
+    fontSize: 13,
+    color: "#8A94A6",
+    marginTop: 3,
+  },
+
+  navigatorCloseBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#F1F5FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  questionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-start",
+  },
+
+  questionNumber: {
+    width: "18%",
+    aspectRatio: 1,
+    marginRight: "2%",
+    marginBottom: 10,
+    borderRadius: 12,
+    backgroundColor: "#F1F3F7",
+    borderWidth: 1,
+    borderColor: "#E2E6ED",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+
+  questionNumberCurrent: {
+    width: "18%",
+    aspectRatio: 1,
+    marginRight: "2%",
+    marginBottom: 10,
+    borderRadius: 12,
+    backgroundColor: "#386BF6",
+    borderWidth: 1,
+    borderColor: "#386BF6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  questionNumberAnswered: {
+    width: "18%",
+    aspectRatio: 1,
+    marginRight: "2%",
+    marginBottom: 10,
+    borderRadius: 12,
+    backgroundColor: "#E9F8EE",
+    borderWidth: 1,
+    borderColor: "#B9E8C7",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+
+  questionNumberSkipped: {
+    width: "18%",
+    aspectRatio: 1,
+    marginRight: "2%",
+    marginBottom: 10,
+    borderRadius: 12,
+    backgroundColor: "#FFF0F0",
+    borderWidth: 1,
+    borderColor: "#F4BDBD",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+
+  questionNumberText: {
+    color: "#4A5578",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  questionNumberTextCurrent: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  questionNumberTextAnswered: {
+    color: "#2FA84F",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  questionNumberTextSkipped: {
+    color: "#D44A4A",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  questionStatusIcon: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+  },
+
+  navigatorLegend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#EEF2FF",
+    paddingTop: 16,
+    marginTop: 8,
+  },
+
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  legendDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 6,
+  },
+
+  legendCurrent: {
+    backgroundColor: "#386BF6",
+  },
+
+  legendAnswered: {
+    backgroundColor: "#E9F8EE",
+  },
+
+  legendSkipped: {
+    backgroundColor: "#FFF0F0",
+  },
+
+  legendUnanswered: {
+    backgroundColor: "#F1F3F7",
+    borderWidth: 1,
+    borderColor: "#E2E6ED",
+  },
+
+  legendText: {
+    fontSize: 11,
+    color: "#68738C",
+    fontWeight: "600",
+  },
+
+  navigatorDoneBtn: {
+    height: 48,
+    borderRadius: 13,
+    backgroundColor: "#386BF6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 18,
+  },
+
+  navigatorDoneText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+
+  /* =======================================================
+     FLASHCARDS
+  ======================================================= */
 
   flashcardArea: {
     flex: 1,
@@ -546,7 +1328,10 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
     elevation: 4,
   },
 
@@ -600,7 +1385,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  /* MULTIPLE CHOICE */
+  /* =======================================================
+     MULTIPLE CHOICE
+  ======================================================= */
 
   questionArea: {
     flex: 1,
@@ -713,7 +1500,9 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 
-  /* FOOTER */
+  /* =======================================================
+     FOOTER
+  ======================================================= */
 
   footer: {
     flexDirection: "row",
@@ -776,4 +1565,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 14,
   },
-});
+}); 

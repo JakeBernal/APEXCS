@@ -17,7 +17,7 @@ import { StatusBar } from "expo-status-bar";
 
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { router, usePathname, useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import { useAuth } from "../../context/AuthContext";
 import { getDashboardSummary } from "../../lib/attempts";
@@ -54,6 +54,38 @@ const cards = [
 
 const EXAM_DATE = "2026-05-18T08:00:00";
 
+/*
+ * Subjects are different between the two Civil Service
+ * exam levels.
+ *
+ * Professional:
+ * - General Information
+ * - Verbal Ability
+ * - Numerical Ability
+ * - Analytical Ability
+ *
+ * Sub-Professional:
+ * - General Information
+ * - Verbal Ability
+ * - Numerical Ability
+ * - Clerical Ability
+ */
+const SUBJECTS_BY_LEVEL = {
+  professional: [
+    "General Information",
+    "Verbal Ability",
+    "Numerical Ability",
+    "Analytical Ability",
+  ],
+
+  sub: [
+    "General Information",
+    "Verbal Ability",
+    "Numerical Ability",
+    "Clerical Ability",
+  ],
+};
+
 function getCountdown(targetDate) {
   const now = new Date();
   const diff = new Date(targetDate) - now;
@@ -66,7 +98,9 @@ function getCountdown(targetDate) {
     };
   }
 
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const days = Math.floor(
+    diff / (1000 * 60 * 60 * 24)
+  );
 
   const hours = Math.floor(
     (diff / (1000 * 60 * 60)) % 24
@@ -100,10 +134,13 @@ export default function Dashboard() {
     getCountdown(EXAM_DATE)
   );
 
-  // Hamburger menu
+  // Professional / Sub-Professional selector
+  const [selectedLevel, setSelectedLevel] = useState(
+    "professional"
+  );
+
   const [menuVisible, setMenuVisible] = useState(false);
 
-  const pathname = usePathname();
   const flatListRef = useRef();
 
   const [summary, setSummary] = useState({
@@ -111,14 +148,40 @@ export default function Dashboard() {
     bestScore: 0,
     lastScore: 0,
     avgScore: 0,
+    examReadiness: 0,
     subjectReadiness: [],
   });
 
-  // Refetch whenever dashboard regains focus.
+  /*
+   * Load dashboard data for the selected exam level.
+   *
+   * Professional and Sub-Professional are kept completely
+   * separate.
+   */
+  const loadDashboard = async () => {
+    try {
+      const data = await getDashboardSummary(
+        selectedLevel
+      );
+
+      setSummary(data);
+    } catch (error) {
+      console.error(
+        "Failed to load dashboard summary:",
+        error
+      );
+    }
+  };
+
+  /*
+   * Refetch whenever:
+   * - Dashboard becomes active again
+   * - User switches exam level
+   */
   useFocusEffect(
     React.useCallback(() => {
-      getDashboardSummary().then(setSummary);
-    }, [])
+      loadDashboard();
+    }, [selectedLevel])
   );
 
   // Route guard.
@@ -181,6 +244,56 @@ export default function Dashboard() {
     user?.email ||
     "Welcome";
 
+  // Friendly label for the selected level
+  const selectedLevelLabel =
+    selectedLevel === "professional"
+      ? "Professional"
+      : "Sub-Professional";
+
+  /*
+   * ============================================================
+   * SUBJECT READINESS
+   * ============================================================
+   *
+   * We don't simply render whatever subjects happen to exist
+   * in the database.
+   *
+   * Instead, the Dashboard knows the official subjects for
+   * the currently selected exam level.
+   *
+   * This prevents:
+   *
+   * Professional:
+   * Analytical Ability
+   *
+   * from accidentally appearing for:
+   *
+   * Sub-Professional:
+   * Clerical Ability
+   *
+   * It also means subjects with no attempts yet still appear
+   * with 0%.
+   */
+
+  const selectedSubjects =
+    SUBJECTS_BY_LEVEL[selectedLevel] || [];
+
+  const dashboardSubjects = selectedSubjects.map(
+    (subjectName) => {
+      const existingSubject =
+        summary.subjectReadiness?.find(
+          (subject) =>
+            subject.title?.trim().toLowerCase() ===
+            subjectName.trim().toLowerCase()
+        );
+
+      return {
+        title: subjectName,
+        percent: existingSubject?.percent ?? 0,
+      };
+    }
+  );
+
   const renderCard = ({ item, index }) => {
     const isActive = index === currentIndex;
 
@@ -202,6 +315,7 @@ export default function Dashboard() {
           ]}
         >
           {/* TOP ROW */}
+
           <View style={styles.progressTopRow}>
             <Text style={styles.cardLabel}>
               Exam Readiness
@@ -209,28 +323,33 @@ export default function Dashboard() {
 
             <View style={styles.examBadgeBlue}>
               <Text style={styles.examBadgeBlueText}>
-                Civil Service Exam
+                {selectedLevelLabel}
               </Text>
             </View>
           </View>
 
           {/* BIG SCORE */}
+
           <Text style={styles.bigScore}>
-            {summary.avgScore}%
+            {summary.examReadiness ??
+              summary.avgScore}
+            %
           </Text>
 
           <Text style={styles.avgScoreLabel}>
-            Avg. Score
+            {selectedLevelLabel} Readiness
           </Text>
 
           {/* HORIZONTAL PROGRESS BAR */}
+
           <View style={styles.hBarBg}>
             <View
               style={[
                 styles.hBarFill,
                 {
                   width: `${Math.min(
-                    summary.avgScore,
+                    summary.examReadiness ??
+                      summary.avgScore,
                     100
                   )}%`,
                 },
@@ -243,6 +362,7 @@ export default function Dashboard() {
           </Text>
 
           {/* STATS ROW */}
+
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statNum}>
@@ -304,6 +424,7 @@ export default function Dashboard() {
       edges={["top"]}
     >
       {/* STATUS BAR */}
+
       <StatusBar
         style="dark"
         backgroundColor={COLORS.bg}
@@ -315,7 +436,9 @@ export default function Dashboard() {
           paddingBottom: 120,
         }}
       >
-        {/* ================= HEADER ================= */}
+        {/* =====================================================
+            HEADER
+            ===================================================== */}
 
         <View style={styles.header}>
           <View>
@@ -329,6 +452,7 @@ export default function Dashboard() {
           </View>
 
           {/* HAMBURGER BUTTON */}
+
           <TouchableOpacity
             style={styles.menuButton}
             activeOpacity={0.7}
@@ -342,7 +466,65 @@ export default function Dashboard() {
           </TouchableOpacity>
         </View>
 
-        {/* ================= HERO CAROUSEL ================= */}
+        {/* =====================================================
+            EXAM LEVEL TOGGLE
+            ===================================================== */}
+
+        <View style={styles.levelSection}>
+          <View style={styles.levelToggle}>
+            {/* PROFESSIONAL */}
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[
+                styles.levelButton,
+                selectedLevel === "professional" &&
+                  styles.levelButtonActive,
+              ]}
+              onPress={() =>
+                setSelectedLevel("professional")
+              }
+            >
+              <Text
+                style={[
+                  styles.levelButtonText,
+                  selectedLevel === "professional" &&
+                    styles.levelButtonTextActive,
+                ]}
+              >
+                Professional
+              </Text>
+            </TouchableOpacity>
+
+            {/* SUB-PROFESSIONAL */}
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[
+                styles.levelButton,
+                selectedLevel === "sub" &&
+                  styles.levelButtonActive,
+              ]}
+              onPress={() =>
+                setSelectedLevel("sub")
+              }
+            >
+              <Text
+                style={[
+                  styles.levelButtonText,
+                  selectedLevel === "sub" &&
+                    styles.levelButtonTextActive,
+                ]}
+              >
+                Sub-Professional
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* =====================================================
+            HERO CAROUSEL
+            ===================================================== */}
 
         <FlatList
           ref={flatListRef}
@@ -358,38 +540,44 @@ export default function Dashboard() {
           }}
         />
 
-        {/* ================= SUBJECT READINESS ================= */}
+        {/* =====================================================
+            SUBJECT READINESS
+            ===================================================== */}
 
-        <Text style={styles.sectionTitle}>
-          Subject Readiness
-        </Text>
+        <View style={styles.sectionHeaderRow}>
+          <View>
+            <Text style={styles.sectionTitle}>
+              Subject Readiness
+            </Text>
 
-        {summary.subjectReadiness.length === 0 && (
-          <Text
-            style={{
-              color: COLORS.muted,
-              paddingHorizontal: SPACING.lg,
-              marginBottom: 10,
-            }}
-          >
+            <Text style={styles.sectionSubtitle}>
+              {selectedLevelLabel} performance
+            </Text>
+          </View>
+        </View>
+
+        {dashboardSubjects.length === 0 && (
+          <Text style={styles.emptyText}>
             Take a mock exam to see your readiness
             per subject.
           </Text>
         )}
 
-        {summary.subjectReadiness.map((s) => {
-          const color = getReadinessColor(s.percent);
+        {dashboardSubjects.map((subject) => {
+          const color = getReadinessColor(
+            subject.percent
+          );
 
           return (
             <View
-              key={s.title}
+              key={subject.title}
               style={styles.performanceCard}
             >
               <View style={styles.performanceRow}>
                 <Text
                   style={styles.performanceLabel}
                 >
-                  {s.title}
+                  {subject.title}
                 </Text>
 
                 <Text
@@ -400,7 +588,7 @@ export default function Dashboard() {
                     },
                   ]}
                 >
-                  {s.percent}%
+                  {subject.percent}%
                 </Text>
               </View>
 
@@ -410,7 +598,7 @@ export default function Dashboard() {
                     styles.progressBarFill,
                     {
                       width: `${Math.min(
-                        s.percent,
+                        subject.percent,
                         100
                       )}%`,
                       backgroundColor: color,
@@ -437,12 +625,14 @@ export default function Dashboard() {
       >
         <View style={styles.menuOverlay}>
           {/* BACKDROP */}
+
           <Pressable
             style={styles.menuBackdrop}
             onPress={() => setMenuVisible(false)}
           />
 
           {/* SIDE MENU */}
+
           <View style={styles.sideMenu}>
             {/* MENU HEADER */}
 
@@ -457,7 +647,7 @@ export default function Dashboard() {
 
               <View style={styles.menuUserInfo}>
                 <Text style={styles.menuWelcome}>
-                  Welcome
+                  Hello
                 </Text>
 
                 <Text
@@ -685,6 +875,61 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
 
+  /* ================= EXAM LEVEL ================= */
+
+  levelSection: {
+    paddingHorizontal: SPACING.lg,
+    marginBottom: 18,
+  },
+
+  levelSectionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginBottom: 10,
+  },
+
+  levelToggle: {
+    flexDirection: "row",
+    backgroundColor: "#E9EEF8",
+    borderRadius: 14,
+    padding: 4,
+  },
+
+  levelButton: {
+    flex: 1,
+    minHeight: 44,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 11,
+    paddingHorizontal: 8,
+  },
+
+  levelButtonActive: {
+    backgroundColor: "#FFFFFF",
+
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+
+    elevation: 2,
+  },
+
+  levelButtonText: {
+    color: COLORS.muted,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  levelButtonTextActive: {
+    color: COLORS.primary,
+    fontWeight: "800",
+  },
+
   /* ================= HAMBURGER ================= */
 
   menuButton: {
@@ -811,13 +1056,30 @@ const styles = StyleSheet.create({
 
   /* ================= SECTION ================= */
 
+  sectionHeaderRow: {
+    marginTop: 30,
+    marginBottom: 16,
+  },
+
   sectionTitle: {
     fontSize: 20,
     fontWeight: "700",
     color: COLORS.text,
-    marginTop: 30,
-    marginBottom: 16,
     paddingHorizontal: SPACING.lg,
+  },
+
+  sectionSubtitle: {
+    fontSize: 12,
+    color: COLORS.muted,
+    paddingHorizontal: SPACING.lg,
+    marginTop: 3,
+  },
+
+  emptyText: {
+    color: COLORS.muted,
+    paddingHorizontal: SPACING.lg,
+    marginBottom: 10,
+    lineHeight: 19,
   },
 
   /* ================= PERFORMANCE ================= */

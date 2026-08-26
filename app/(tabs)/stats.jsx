@@ -50,7 +50,8 @@ export default function Stats() {
     "__all_categories__"
   );
 
-  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] =
+    useState(false);
 
   // --------------------------------------------------
   // LOAD EXAM HISTORY
@@ -78,7 +79,11 @@ export default function Stats() {
         setAttempts(examAttempts);
       })
       .catch((error) => {
-        console.error("Failed to load attempt history:", error);
+        console.error(
+          "Failed to load attempt history:",
+          error
+        );
+
         setAttempts([]);
       })
       .finally(() => {
@@ -131,19 +136,50 @@ export default function Stats() {
   const filtered = useMemo(() => {
     return attempts.filter((attempt) => {
       // Level filter
-      if (filter !== "all" && attempt.level !== filter) {
+      if (
+        filter !== "all" &&
+        attempt.level !== filter
+      ) {
         return false;
       }
 
       // All Categories
-      if (categoryFilter === "__all_categories__") {
+      if (
+        categoryFilter === "__all_categories__"
+      ) {
         return true;
       }
 
       // Individual subject
-      return attempt.subject_title === categoryFilter;
+      return (
+        attempt.subject_title === categoryFilter
+      );
     });
   }, [attempts, filter, categoryFilter]);
+
+  // --------------------------------------------------
+  // GROWTH VISIBILITY
+  // --------------------------------------------------
+
+  /*
+   * Growth is hidden only when:
+   *
+   * Level     = All
+   * Category  = All Categories
+   *
+   * This prevents Professional and Sub-Professional
+   * growth values from being mixed together.
+   *
+   * Growth remains visible when:
+   * - Professional + All Categories
+   * - Sub-Professional + All Categories
+   * - Any level + specific category
+   */
+
+  const showGrowth = !(
+    filter === "all" &&
+    categoryFilter === "__all_categories__"
+  );
 
   // --------------------------------------------------
   // GROUP HELPERS
@@ -154,10 +190,8 @@ export default function Stats() {
    *
    * 1. They have the same subject
    * 2. They have the same professional level
-   *
-   * This prevents a Professional score from being
-   * compared against a Sub-Professional score.
    */
+
   const sameGroup = useCallback((a, b) => {
     if (!a || !b) return false;
 
@@ -172,15 +206,20 @@ export default function Stats() {
    * Finds the previous attempt belonging to the same
    * subject + level group.
    *
-   * The attempts are sorted newest -> oldest.
+   * Attempts are sorted newest -> oldest.
    */
+
   const findPreviousInGroup = useCallback(
     (list, index) => {
       const current = list[index];
 
       if (!current) return null;
 
-      for (let i = index + 1; i < list.length; i++) {
+      for (
+        let i = index + 1;
+        i < list.length;
+        i++
+      ) {
         if (sameGroup(list[i], current)) {
           return list[i];
         }
@@ -198,42 +237,22 @@ export default function Stats() {
   const examsTaken = filtered.length;
 
   const passed = filtered.filter(
-    (attempt) => (attempt.score ?? 0) >= PASS_THRESHOLD
+    (attempt) =>
+      (attempt.score ?? 0) >= PASS_THRESHOLD
   ).length;
 
   const bestScore =
     examsTaken > 0
       ? Math.max(
-          ...filtered.map((attempt) => attempt.score ?? 0)
+          ...filtered.map(
+            (attempt) => attempt.score ?? 0
+          )
         )
       : 0;
 
   // --------------------------------------------------
   // GROWTH
   // --------------------------------------------------
-
-  /*
-   * Growth is based on the newest exam compared to the
-   * previous exam from the SAME:
-   *
-   * - subject
-   * - professional level
-   *
-   * This works even when "All Categories" is selected.
-   *
-   * Example:
-   *
-   * Professional - General Information - 70%
-   * Professional - General Information - 80%
-   *
-   * Growth = +10%
-   *
-   * It will NOT compare:
-   *
-   * Professional - General Information
-   * against
-   * Professional - Numerical Ability
-   */
 
   const mostRecentAttempt = filtered[0];
 
@@ -255,11 +274,15 @@ export default function Stats() {
     <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{
+          paddingBottom: 120,
+        }}
       >
         {/* TITLE */}
 
-        <Text style={styles.title}>History</Text>
+        <Text style={styles.title}>
+          History
+        </Text>
 
         {/* SUMMARY CARD */}
 
@@ -307,27 +330,33 @@ export default function Stats() {
 
           {/* GROWTH */}
 
-          <View style={styles.summaryItem}>
-            <Text
-              style={[
-                styles.summaryNumber,
-                growth !== null &&
-                  growth > 0 &&
-                  styles.growthPositive,
-                growth !== null &&
-                  growth < 0 &&
-                  styles.growthNegative,
-              ]}
-            >
-              {growth === null
-                ? "—"
-                : `${growth >= 0 ? "+" : ""}${growth}%`}
-            </Text>
+          {showGrowth && (
+            <View style={styles.summaryItem}>
+              <Text
+                style={[
+                  styles.summaryNumber,
 
-            <Text style={styles.summaryLabel}>
-              Growth
-            </Text>
-          </View>
+                  growth !== null &&
+                    growth > 0 &&
+                    styles.growthPositive,
+
+                  growth !== null &&
+                    growth < 0 &&
+                    styles.growthNegative,
+                ]}
+              >
+                {growth === null
+                  ? "—"
+                  : `${
+                      growth >= 0 ? "+" : ""
+                    }${growth}%`}
+              </Text>
+
+              <Text style={styles.summaryLabel}>
+                Growth
+              </Text>
+            </View>
+          )}
         </LinearGradient>
 
         {/* LEVEL FILTERS */}
@@ -362,7 +391,9 @@ export default function Stats() {
                 ? styles.activeFilter
                 : styles.filter
             }
-            onPress={() => setFilter("professional")}
+            onPress={() =>
+              setFilter("professional")
+            }
           >
             <Text
               style={
@@ -370,6 +401,8 @@ export default function Stats() {
                   ? styles.activeFilterText
                   : styles.filterText
               }
+              numberOfLines={1}
+              adjustsFontSizeToFit
             >
               Professional
             </Text>
@@ -391,8 +424,10 @@ export default function Stats() {
                   ? styles.activeFilterText
                   : styles.filterText
               }
+              numberOfLines={1}
+              adjustsFontSizeToFit
             >
-              Sub-Professional
+              Sub-Pro
             </Text>
           </TouchableOpacity>
         </View>
@@ -404,15 +439,22 @@ export default function Stats() {
             <TouchableOpacity
               style={styles.dropdownButton}
               onPress={() =>
-                setCategoryDropdownOpen((open) => !open)
+                setCategoryDropdownOpen(
+                  (open) => !open
+                )
               }
               activeOpacity={0.8}
             >
-              <Text style={styles.dropdownButtonText}>
-                {categoryOptions.find(
-                  (option) =>
-                    option.key === categoryFilter
-                )?.label ?? "All Categories"}
+              <Text
+                style={styles.dropdownButtonText}
+                numberOfLines={1}
+              >
+                {
+                  categoryOptions.find(
+                    (option) =>
+                      option.key === categoryFilter
+                  )?.label
+                }
               </Text>
 
               <Ionicons
@@ -428,48 +470,59 @@ export default function Stats() {
 
             {categoryDropdownOpen && (
               <View style={styles.dropdownMenu}>
-                {categoryOptions.map((option, index) => {
-                  const active =
-                    categoryFilter === option.key;
+                {categoryOptions.map(
+                  (option, index) => {
+                    const active =
+                      categoryFilter ===
+                      option.key;
 
-                  const isLast =
-                    index === categoryOptions.length - 1;
+                    const isLast =
+                      index ===
+                      categoryOptions.length - 1;
 
-                  return (
-                    <TouchableOpacity
-                      key={option.key}
-                      style={[
-                        styles.dropdownItem,
-                        !isLast &&
-                          styles.dropdownItemBorder,
-                        active &&
-                          styles.dropdownItemActive,
-                      ]}
-                      onPress={() => {
-                        setCategoryFilter(option.key);
-                        setCategoryDropdownOpen(false);
-                      }}
-                    >
-                      <Text
+                    return (
+                      <TouchableOpacity
+                        key={option.key}
                         style={[
-                          styles.dropdownItemText,
+                          styles.dropdownItem,
+                          !isLast &&
+                            styles.dropdownItemBorder,
                           active &&
-                            styles.dropdownItemTextActive,
+                            styles.dropdownItemActive,
                         ]}
-                      >
-                        {option.label}
-                      </Text>
+                        onPress={() => {
+                          setCategoryFilter(
+                            option.key
+                          );
 
-                      {active && (
-                        <Ionicons
-                          name="checkmark"
-                          size={18}
-                          color={COLORS.primary}
-                        />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
+                          setCategoryDropdownOpen(
+                            false
+                          );
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            active &&
+                              styles.dropdownItemTextActive,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+
+                        {active && (
+                          <Ionicons
+                            name="checkmark"
+                            size={18}
+                            color={
+                              COLORS.primary
+                            }
+                          />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  }
+                )}
               </View>
             )}
           </View>
@@ -481,42 +534,75 @@ export default function Stats() {
           <ActivityIndicator
             size="large"
             color={COLORS.primary}
-            style={{ marginTop: 20 }}
+            style={{
+              marginTop: 20,
+            }}
           />
         )}
 
         {/* EMPTY STATE */}
 
-        {!loading && filtered.length === 0 && (
-          <Text style={styles.emptyText}>
-            No exams taken yet. Finish a mock exam to see it
-            here.
-          </Text>
-        )}
+        {!loading &&
+          filtered.length === 0 && (
+            <Text style={styles.emptyText}>
+              No exams taken yet. Finish a mock
+              exam to see it here.
+            </Text>
+          )}
 
         {/* EXAM HISTORY */}
 
         {!loading &&
           filtered.map((attempt, index) => {
             const passedThis =
-              (attempt.score ?? 0) >= PASS_THRESHOLD;
+              (attempt.score ?? 0) >=
+              PASS_THRESHOLD;
 
-            /*
-             * Find the previous exam of the SAME:
-             *
-             * - subject
-             * - professional level
-             */
-
-            const prevInGroup = findPreviousInGroup(
-              filtered,
-              index
-            );
+            const prevInGroup =
+              findPreviousInGroup(
+                filtered,
+                index
+              );
 
             const vsPrev = prevInGroup
               ? (attempt.score ?? 0) -
                 (prevInGroup.score ?? 0)
               : null;
+
+            /*
+             * filtered is newest -> oldest.
+             *
+             * Example:
+             *
+             * index 0 = latest
+             * index 1 = second latest
+             * index 2 = third latest
+             *
+             * Therefore:
+             *
+             * total 5:
+             *
+             * latest = Exam #5
+             * second = Exam #4
+             * third  = Exam #3
+             * fourth = Exam #2
+             * oldest = Exam #1
+             */
+
+            const examNumber =
+              filtered.length - index;
+
+            /*
+             * When All Categories is selected,
+             * show Exam # instead of the category name.
+             */
+
+            const displayTitle =
+              categoryFilter ===
+              "__all_categories__"
+                ? `Exam #${examNumber}`
+                : attempt.subject_title ||
+                  `Exam #${examNumber}`;
 
             return (
               <View
@@ -535,9 +621,10 @@ export default function Stats() {
                     style={[
                       styles.scoreBadge,
                       {
-                        backgroundColor: passedThis
-                          ? "#E1F7E6"
-                          : "#FDE0E0",
+                        backgroundColor:
+                          passedThis
+                            ? "#E1F7E6"
+                            : "#FDE0E0",
                       },
                     ]}
                   >
@@ -563,13 +650,16 @@ export default function Stats() {
                       marginLeft: 10,
                     }}
                   >
-                    <Text style={styles.examTitle}>
-                      {attempt.subject_title ||
-                        "All Categories"}
+                    <Text
+                      style={styles.examTitle}
+                      numberOfLines={1}
+                    >
+                      {displayTitle}
                     </Text>
 
                     <Text style={styles.examType}>
-                      {attempt.level === "professional"
+                      {attempt.level ===
+                      "professional"
                         ? "Professional"
                         : "Sub-Professional"}
                     </Text>
@@ -581,9 +671,10 @@ export default function Stats() {
                     style={[
                       styles.failedBadge,
                       {
-                        backgroundColor: passedThis
-                          ? "#DFF6E4"
-                          : "#FFE1E1",
+                        backgroundColor:
+                          passedThis
+                            ? "#DFF6E4"
+                            : "#FFE1E1",
                       },
                     ]}
                   >
@@ -597,14 +688,19 @@ export default function Stats() {
                         },
                       ]}
                     >
-                      {passedThis ? "Passed" : "Failed"}
+                      {passedThis
+                        ? "Passed"
+                        : "Failed"}
                     </Text>
                   </View>
                 </View>
 
                 {/* SUBJECT BREAKDOWN */}
 
-                {(attempt.subject_breakdown || []).map(
+                {(
+                  attempt.subject_breakdown ||
+                  []
+                ).map(
                   (subject, subjectIndex) => {
                     const percent =
                       subject.total > 0
@@ -637,12 +733,19 @@ export default function Stats() {
                   {/* SCORE */}
 
                   <View>
-                    <Text style={styles.bottomNumber}>
-                      {attempt.correct_count ?? 0}/
-                      {attempt.total_questions ?? 0}
+                    <Text
+                      style={styles.bottomNumber}
+                    >
+                      {attempt.correct_count ??
+                        0}
+                      /
+                      {attempt.total_questions ??
+                        0}
                     </Text>
 
-                    <Text style={styles.bottomLabel}>
+                    <Text
+                      style={styles.bottomLabel}
+                    >
                       Score
                     </Text>
                   </View>
@@ -650,42 +753,54 @@ export default function Stats() {
                   {/* TIME */}
 
                   <View>
-                    <Text style={styles.bottomNumber}>
+                    <Text
+                      style={styles.bottomNumber}
+                    >
                       {formatDuration(
                         attempt.duration_seconds
                       )}
                     </Text>
 
-                    <Text style={styles.bottomLabel}>
+                    <Text
+                      style={styles.bottomLabel}
+                    >
                       Time
                     </Text>
                   </View>
 
                   {/* VS PREVIOUS */}
 
-                  <View>
-                    <Text
-                      style={[
-                        styles.bottomNumber,
-                        vsPrev !== null &&
-                          vsPrev > 0 &&
-                          styles.growthTextPositive,
-                        vsPrev !== null &&
-                          vsPrev < 0 &&
-                          styles.growthTextNegative,
-                      ]}
-                    >
-                      {vsPrev === null
-                        ? "—"
-                        : `${
-                            vsPrev >= 0 ? "+" : ""
-                          }${vsPrev}%`}
-                    </Text>
+                  {showGrowth && (
+                    <View>
+                      <Text
+                        style={[
+                          styles.bottomNumber,
 
-                    <Text style={styles.bottomLabel}>
-                      Vs Prev
-                    </Text>
-                  </View>
+                          vsPrev !== null &&
+                            vsPrev > 0 &&
+                            styles.growthTextPositive,
+
+                          vsPrev !== null &&
+                            vsPrev < 0 &&
+                            styles.growthTextNegative,
+                        ]}
+                      >
+                        {vsPrev === null
+                          ? "—"
+                          : `${
+                              vsPrev >= 0
+                                ? "+"
+                                : ""
+                            }${vsPrev}%`}
+                      </Text>
+
+                      <Text
+                        style={styles.bottomLabel}
+                      >
+                        Vs Prev
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             );
@@ -699,9 +814,17 @@ export default function Stats() {
 // PROGRESS ROW
 // --------------------------------------------------
 
-function ProgressRow({ label, percent, color }) {
+function ProgressRow({
+  label,
+  percent,
+  color,
+}) {
   return (
-    <View style={{ marginTop: 14 }}>
+    <View
+      style={{
+        marginTop: 14,
+      }}
+    >
       <View style={styles.progressTop}>
         <Text style={styles.progressLabel}>
           {label}
@@ -710,7 +833,9 @@ function ProgressRow({ label, percent, color }) {
         <Text
           style={[
             styles.progressPercent,
-            { color },
+            {
+              color,
+            },
           ]}
         >
           {percent}%
@@ -786,11 +911,56 @@ const styles = StyleSheet.create({
     color: "#FFD0D0",
   },
 
+  /*
+   * LEVEL FILTER
+   *
+   * Same pill concept as your existing navigation,
+   * but each tab gets an equal share of the available
+   * width so Sub-Professional cannot overflow.
+   */
+
   filterRow: {
     flexDirection: "row",
     marginHorizontal: 24,
     marginTop: 24,
     marginBottom: 12,
+    gap: 8,
+  },
+
+  activeFilter: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 0,
+  },
+
+  activeFilterText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 12,
+    textAlign: "center",
+  },
+
+  filter: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#DDD",
+    paddingVertical: 10,
+    borderRadius: 25,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 0,
+  },
+
+  filterText: {
+    color: "#B0B0B0",
+    fontWeight: "600",
+    fontSize: 12,
+    textAlign: "center",
   },
 
   dropdownWrapper: {
@@ -811,9 +981,11 @@ const styles = StyleSheet.create({
   },
 
   dropdownButtonText: {
+    flex: 1,
     color: COLORS.text,
     fontWeight: "700",
     fontSize: 14,
+    marginRight: 10,
   },
 
   dropdownMenu: {
@@ -822,9 +994,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     overflow: "hidden",
     elevation: 4,
+
     shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 10,
+
     shadowOffset: {
       width: 0,
       height: 4,
@@ -857,34 +1031,6 @@ const styles = StyleSheet.create({
   dropdownItemTextActive: {
     color: COLORS.primary,
     fontWeight: "700",
-  },
-
-  activeFilter: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 22,
-    paddingVertical: 10,
-    borderRadius: 25,
-    marginRight: 10,
-  },
-
-  activeFilterText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
-
-  filter: {
-    borderWidth: 1,
-    borderColor: "#DDD",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 25,
-    marginRight: 10,
-    backgroundColor: "#fff",
-  },
-
-  filterText: {
-    color: "#B0B0B0",
-    fontWeight: "600",
   },
 
   emptyText: {
