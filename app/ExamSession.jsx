@@ -9,8 +9,7 @@ import { buildQuestionSet } from "../lib/examData";
 import { saveAttempt } from "../lib/attempts";
 // import { ExamQuestionSkeleton } from "../components/ExamQuestionSkeleton";
 
-// Duration in seconds per level for the "timed" mode. Tweak as needed —
-// currently a placeholder, not tied to real per-subject question counts.
+
 const TIMED_DURATION = {
   // professional: 3 * 60 * 60,
   professional: 3 * 60 * 60,

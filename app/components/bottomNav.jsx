@@ -39,9 +39,9 @@ export default function BottomNav() {
     <View style={styles.bottomNav}>
       {tabs.map((item) => {
         const isActive = pathname === item.route;
-        console.log("pathname:", pathname);
-        console.log(item.route, pathname === item.route);
-         console.log("BottomNav rendered");
+        // console.log("pathname:", pathname);
+        // console.log(item.route, pathname === item.route);
+        //  console.log("BottomNav rendered");
 
         return (
           <TouchableOpacity
