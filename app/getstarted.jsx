@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
 
   textWrapper: {
     alignItems: "center",
-    marginTop: 90,
+    marginTop: 50,
     paddingHorizontal: 20,
   },
 
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
 
   image: {
     width: 320,
-    height: 420,
+    height: 325,
   },
 
   dotsContainer: {

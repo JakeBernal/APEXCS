@@ -12,9 +12,30 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
+
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
+
+// Ensures browser session closes cleanly on mobile after OAuth redirect
+WebBrowser.maybeCompleteAuthSession();
+
+const COLORS = {
+  primary: "#386BF6",
+  navy: "#14143A",
+  bg: "#FFFFFF",
+  inputBg: "#F8FAFD",
+  inputBorder: "#E2E8F0",
+  inputBorderFocus: "#386BF6",
+  text: "#14143A",
+  muted: "#7D8FB3",
+  border: "#EEF1F5",
+};
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -23,245 +44,292 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
+  // Input focus highlights
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+
+  /* ================= STANDARD EMAIL/PASSWORD LOGIN ================= */
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Missing info", "Please enter your email and password.");
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) {
+      Alert.alert("Missing Information", "Please enter both your email address and password.");
       return;
     }
 
     setLoading(true);
-    const { error } = await signIn({ email, password });
+    const { error } = await signIn({ email: cleanEmail, password });
     setLoading(false);
 
     if (error) {
-      Alert.alert("Login failed", error.message);
+      // Supabase email confirmation check
+      if (error.message?.toLowerCase().includes("email not confirmed")) {
+        Alert.alert(
+          "Email Not Confirmed",
+          "Please check your Gmail inbox (and Spam folder) to confirm your email before signing in.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
+      Alert.alert("Login Failed", error.message || "Invalid email or password.");
       return;
     }
 
-    router.push("/dashboard");
+    router.replace("/dashboard");
+  };
+
+  /* ================= REAL GOOGLE SIGN-IN VIA SUPABASE ================= */
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      // Creates the redirect back into APEX app: apex://dashboard
+      const redirectUrl = Linking.createURL("dashboard");
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+        if (result.type === "success" && result.url) {
+          const parsed = Linking.parse(result.url);
+
+          if (parsed.queryParams?.access_token && parsed.queryParams?.refresh_token) {
+            await supabase.auth.setSession({
+              access_token: parsed.queryParams.access_token,
+              refresh_token: parsed.queryParams.refresh_token,
+            });
+          }
+          router.replace("/dashboard");
+        }
+      }
+    } catch (err) {
+      Alert.alert("Google Sign-In", err.message || "Unable to sign in with Google.");
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#fff" }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-        style={{ flex: 1, backgroundColor: "#fff" }}
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="dark" backgroundColor={COLORS.bg} />
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ORIGINAL LOGO (UNTOUCHED) */}
+          <View style={styles.logoWrapper}>
+            <Text style={styles.apex}>APEX</Text>
+            <Text style={styles.cs}>cs</Text>
+          </View>
 
-       
-        <View style={styles.logoWrapper}>
-          <Text style={styles.apex}>APEX</Text>
-          <Text style={styles.cs}>cs</Text>
-        </View>
+          {/* HEADINGS */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Login</Text>
+            <Text style={styles.instructions}>Sign in to continue your preparation</Text>
+          </View>
 
-        <Text style={styles.title}>Login</Text>
-
-    
-        <View style={styles.form}>
-
-          <Text style={styles.label}>Email Address</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-          />
-
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordBox}>
-            <TextInput
-              style={styles.passwordInput}
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+          {/* FORM CONTAINER */}
+          <View style={styles.form}>
+            {/* EMAIL */}
+            <Text style={styles.label}>Email Address</Text>
+            <View style={[styles.inputBox, isEmailFocused && styles.inputBoxFocused]}>
               <Ionicons
-                name={showPassword ? "eye-off" : "eye"}
-                size={22}
-                color="#666"
+                name="mail-outline"
+                size={20}
+                color={isEmailFocused ? COLORS.primary : COLORS.muted}
+                style={styles.leadingIcon}
               />
+              <TextInput
+                style={styles.input}
+                placeholder="name@gmail.com"
+                placeholderTextColor="#A0AEC0"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={email}
+                onChangeText={setEmail}
+                onFocus={() => setIsEmailFocused(true)}
+                onBlur={() => setIsEmailFocused(false)}
+              />
+            </View>
+
+            {/* PASSWORD */}
+            <Text style={styles.label}>Password</Text>
+            <View style={[styles.inputBox, isPasswordFocused && styles.inputBoxFocused]}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={isPasswordFocused ? COLORS.primary : COLORS.muted}
+                style={styles.leadingIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your password"
+                placeholderTextColor="#A0AEC0"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.trailingIcon}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={COLORS.muted}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* FORGOT PASSWORD */}
+            <TouchableOpacity
+              onPress={() => router.push("/forgot-password")}
+              style={styles.forgotWrap}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.forgotText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            {/* LOGIN BUTTON */}
+            <TouchableOpacity
+              style={[styles.primaryBtn, loading && { opacity: 0.7 }]}
+              disabled={loading}
+              onPress={handleLogin}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primaryBtnText}>Login</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* DIVIDER */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* GOOGLE SIGN IN BUTTON */}
+            <TouchableOpacity
+              style={[styles.googleBtn, googleLoading && { opacity: 0.7 }]}
+              disabled={googleLoading}
+              onPress={handleGoogleSignIn}
+              activeOpacity={0.7}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color="#444" />
+              ) : (
+                <>
+                  <Image
+                    source={require("../assets/google.png")}
+                    style={styles.googleIcon}
+                  />
+                  <Text style={styles.googleText}>Sign in with Google</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
 
-         
-          <TouchableOpacity
-            onPress={() => router.push("/forgot-password")}
-            style={styles.forgotWrap}
-          >
-            <Text style={styles.forgotText}>Forgot Password?</Text>
-          </TouchableOpacity>
-
-        </View>
-
-        <TouchableOpacity
-          style={[styles.primaryBtn, { opacity: loading ? 0.5 : 1 }]}
-          disabled={loading}
-          onPress={handleLogin}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.primaryBtnText}>Login</Text>
-          )}
-        </TouchableOpacity>
-        <Text style={styles.or}>Or</Text>
-        <TouchableOpacity style={styles.googleBtn}>
-         <Image
-          source={require("../assets/google.png")}
-          style={styles.googleIcon}/>
-         <Text style={styles.googleText}>Sign in with Google</Text>
-        </TouchableOpacity>
-
-        {/* LINK */}
-        <Text style={styles.bottomText}>
-          Don’t have an account?{" "}
-          <Text style={styles.link} onPress={() => router.push("/register")}>
-            Register
-          </Text>
-        </Text>
-
-      </ScrollView>
-    </KeyboardAvoidingView>
+          {/* REGISTER LINK */}
+          <View style={styles.bottomRow}>
+            <Text style={styles.bottomText}>Don’t have an account? </Text>
+            <TouchableOpacity onPress={() => router.push("/register")} activeOpacity={0.7}>
+              <Text style={styles.link}>Register</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: { flex: 1, backgroundColor: COLORS.bg },
+  scrollContent: {
     flexGrow: 1,
-    backgroundColor: "#fff",
-    paddingTop: 80,
-    alignItems: "center",
+    paddingHorizontal: 28,
+    paddingTop: 36,
     paddingBottom: 40,
+    alignItems: "center",
   },
-
-  logoWrapper: {
-    flexDirection: "row",
-  },
-
-  apex: {
-    fontSize: 38,
-    fontWeight: "900",
-    color: "#14143A",
-    letterSpacing: 3,
-  },
-
-  cs: {
-    fontSize: 20,
-    fontStyle: "italic",
-    marginTop: 18,
-    marginLeft: 2,
-    color: "#386BF6",
-  },
-
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    marginTop: 40,
-    color: "#1F1F5A",
-  },
-
-  form: {
-    width: "75%",
-    marginTop: 30,
-  },
-
-  input: {
-    backgroundColor: "#F2F2F2",
-    padding: 18,
-    borderRadius: 10,
-    marginBottom: 12,
-  },
-
-  label: {
-    fontWeight: "600",
-    color: "#1F1F5A",
-    marginBottom: 6,
-    marginTop: 10,
-  },
-
-  passwordBox: {
+  logoWrapper: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
+  apex: { fontSize: 38, fontWeight: "900", color: "#14143A", letterSpacing: 3 },
+  cs: { fontSize: 20, fontStyle: "italic", marginTop: 18, marginLeft: 2, color: "#386BF6" },
+  header: { width: "100%", marginBottom: 24 },
+  title: { fontSize: 28, fontWeight: "800", color: "#1F1F5A" },
+  instructions: { fontSize: 14, color: COLORS.muted, marginTop: 4 },
+  form: { width: "100%" },
+  label: { fontSize: 13, fontWeight: "600", color: "#1F1F5A", marginBottom: 6, marginTop: 10 },
+  inputBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F2F2F2",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-
-  passwordInput: {
-    flex: 1,
-    paddingVertical: 18,
-    color: "#2a2929",
-  },
-
-  forgotWrap: {
-    alignItems: "flex-end",
-    marginTop: 5,
-  },
-
-  forgotText: {
-    color: "#386BF6",
-    fontWeight: "600",
-    fontSize: 13,
-  },
-
-  primaryBtn: {
-    backgroundColor: "#386BF6",
-    width: 315,
-    paddingVertical: 16,
+    backgroundColor: COLORS.inputBg,
     borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.inputBorder,
+    paddingHorizontal: 14,
+    height: 52,
+    marginBottom: 8,
+  },
+  inputBoxFocused: { borderColor: COLORS.inputBorderFocus, backgroundColor: "#FFFFFF" },
+  leadingIcon: { marginRight: 10 },
+  input: { flex: 1, height: "100%", fontSize: 15, color: COLORS.text },
+  trailingIcon: { padding: 4 },
+  forgotWrap: { alignSelf: "flex-end", marginTop: 4, marginBottom: 20, paddingVertical: 4 },
+  forgotText: { color: COLORS.primary, fontWeight: "600", fontSize: 13 },
+  primaryBtn: {
+    backgroundColor: COLORS.primary,
+    width: "100%",
+    height: 52,
+    borderRadius: 12,
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 50,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
-
-  primaryBtnText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-
+  primaryBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  dividerRow: { flexDirection: "row", alignItems: "center", marginVertical: 24 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
+  dividerText: { color: COLORS.muted, fontSize: 13, marginHorizontal: 12, fontWeight: "500" },
   googleBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    width: 315,
-    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: "#FFFFFF",
+    width: "100%",
+    height: 52,
     borderRadius: 12,
-    marginTop: 12,
   },
-
-  googleText: {
-    marginLeft: 10,
-    color: "#444",
-    fontWeight: "600",
-  },
-
-  bottomText: {
-    marginTop: 20,
-    color: "#666",
-  },
-
-  link: {
-    color: "#386BF6",
-    fontWeight: "700",
-  },
-  googleIcon: {
-  width: 20,
-  height: 20,
-  marginRight: 10,
-  resizeMode: "contain",
-},
-or:{
-    marginTop:40,
-    marginBottom:20,
-}
+  googleIcon: { width: 20, height: 20, marginRight: 10, resizeMode: "contain" },
+  googleText: { color: "#444", fontSize: 14, fontWeight: "600" },
+  bottomRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 32 },
+  bottomText: { color: "#666", fontSize: 14 },
+  link: { color: COLORS.primary, fontWeight: "700", fontSize: 14 },
 });

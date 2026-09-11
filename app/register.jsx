@@ -8,12 +8,33 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  Image,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
+
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
+
+WebBrowser.maybeCompleteAuthSession();
+
+const COLORS = {
+  primary: "#386BF6",
+  navy: "#14143A",
+  bg: "#FFFFFF",
+  inputBg: "#F8FAFD",
+  inputBorder: "#E2E8F0",
+  inputBorderFocus: "#386BF6",
+  text: "#14143A",
+  muted: "#7D8FB3",
+  border: "#EEF1F5",
+};
 
 export default function Register() {
   const { signUp } = useAuth();
@@ -26,209 +47,405 @@ export default function Register() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
+  // Input focus highlights
+  const [isNameFocused, setIsNameFocused] = useState(false);
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [isConfirmFocused, setIsConfirmFocused] = useState(false);
+
+  /* ================= REGISTRATION HANDLER ================= */
   const handleRegister = async () => {
-    if (!fullName || !email || !password || !confirmPassword) {
-      Alert.alert("Missing info", "Please fill in all fields.");
+    const cleanName = fullName.trim();
+    const cleanEmail = email.trim();
+
+    if (!cleanName || !cleanEmail || !password || !confirmPassword) {
+      Alert.alert("Missing Information", "Please fill in all required fields.");
       return;
     }
+
     if (password !== confirmPassword) {
-      Alert.alert("Password mismatch", "Passwords do not match.");
+      Alert.alert("Password Mismatch", "Passwords do not match.");
       return;
     }
+
     if (password.length < 6) {
-      Alert.alert("Weak password", "Password must be at least 6 characters.");
+      Alert.alert("Weak Password", "Password must be at least 6 characters.");
+      return;
+    }
+
+    // Number requirement check
+    if (!/\d/.test(password)) {
+      Alert.alert("Password Requirement", "Password must contain at least one number (0-9).");
+      return;
+    }
+
+    if (!agree) {
+      Alert.alert("Terms & Conditions", "Please agree to the Terms & Conditions to proceed.");
       return;
     }
 
     setLoading(true);
-    const { data, error } = await signUp({ fullName, email, password });
+    const { data, error } = await signUp({
+      fullName: cleanName,
+      email: cleanEmail,
+      password,
+    });
     setLoading(false);
 
     if (error) {
-      Alert.alert("Registration failed", error.message);
+      Alert.alert("Registration Failed", error.message);
       return;
     }
 
-    // If email confirmation is enabled in Supabase, there's no session yet.
+    // Supabase confirmation flow
     if (!data.session) {
       Alert.alert(
-        "Check your email",
-        "We sent you a confirmation link to finish creating your account."
+        "Verification Email Sent",
+        `We sent a confirmation link to ${cleanEmail}. Please verify your email in Gmail before signing in.`,
+        [
+          {
+            text: "Go to Login",
+            onPress: () => router.replace("/login"),
+          },
+        ]
       );
-      router.push("/login");
     } else {
-      router.replace("/home");
+      router.replace("/dashboard");
+    }
+  };
+
+  /* ================= GOOGLE REGISTRATION VIA SUPABASE ================= */
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      const redirectUrl = Linking.createURL("dashboard");
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+        if (result.type === "success" && result.url) {
+          const parsed = Linking.parse(result.url);
+
+          if (parsed.queryParams?.access_token && parsed.queryParams?.refresh_token) {
+            await supabase.auth.setSession({
+              access_token: parsed.queryParams.access_token,
+              refresh_token: parsed.queryParams.refresh_token,
+            });
+          }
+          router.replace("/dashboard");
+        }
+      }
+    } catch (err) {
+      Alert.alert("Google Sign-In", err.message || "Unable to complete Google registration.");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#fff" }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled"
-        style={{ flex: 1, backgroundColor: "#fff" }}
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="dark" backgroundColor={COLORS.bg} />
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        {/* LOGO */}
-        <View style={styles.logoWrapper}>
-          <Text style={styles.apex}>APEX</Text>
-          <Text style={styles.cs}>cs</Text>
-        </View>
-
-        {/* TITLE */}
-        <Text style={styles.title}>Register</Text>
-
-        {/* FORM */}
-        <View style={styles.form}>
-          <Text style={styles.label}>Full Name</Text>
-          <TextInput
-            style={styles.input}
-            value={fullName}
-            onChangeText={setFullName}
-            autoCapitalize="words"
-          />
-
-          <Text style={styles.label}>Email Address</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            value={email}
-            onChangeText={setEmail}
-          />
-
-          {/* PASSWORD */}
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordBox}>
-            <TextInput
-              style={styles.passwordInput}
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons
-                name={showPassword ? "eye-off" : "eye"}
-                size={22}
-                color="#666"
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* CONFIRM PASSWORD */}
-          <Text style={styles.label}>Confirm Password</Text>
-          <View style={styles.passwordBox}>
-            <TextInput
-              style={styles.passwordInput}
-              secureTextEntry={!showConfirm}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
-            <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
-              <Ionicons
-                name={showConfirm ? "eye-off" : "eye"}
-                size={22}
-                color="#666"
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* TERMS */}
-          <View style={styles.termsRow}>
-            <TouchableOpacity
-              style={styles.checkbox}
-              onPress={() => setAgree(!agree)}
-            >
-              {agree && <View style={styles.checked} />}
-            </TouchableOpacity>
-
-            <Text style={styles.termsText}>
-              I agree to the{" "}
-              <Text
-                style={styles.termsLink}
-                onPress={() => router.push("/term")}
-              >
-                Terms & Conditions
-              </Text>
-            </Text>
-          </View>
-        </View>
-
-        {/* BUTTON */}
-        <TouchableOpacity
-          style={[styles.primaryBtn, { opacity: agree && !loading ? 1 : 0.5 }]}
-          disabled={!agree || loading}
-          onPress={handleRegister}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.primaryBtnText}>Continue</Text>
-          )}
-        </TouchableOpacity>
+          {/* ORIGINAL LOGO (UNTOUCHED) */}
+          <View style={styles.logoWrapper}>
+            <Text style={styles.apex}>APEX</Text>
+            <Text style={styles.cs}>cs</Text>
+          </View>
 
-        {/* LINK */}
-        <Text style={styles.bottomText}>
-          Already have an account?{" "}
-          <Text style={styles.link} onPress={() => router.push("/login")}>
-            Login
-          </Text>
-        </Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          {/* HEADINGS */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.instructions}>Start preparing for the Civil Service Exam</Text>
+          </View>
+
+          {/* FORM CONTAINER (100% MATCHING WIDTH) */}
+          <View style={styles.form}>
+            {/* FULL NAME */}
+            <Text style={styles.label}>Full Name</Text>
+            <View style={[styles.inputBox, isNameFocused && styles.inputBoxFocused]}>
+              <Ionicons
+                name="person-outline"
+                size={20}
+                color={isNameFocused ? COLORS.primary : COLORS.muted}
+                style={styles.leadingIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Juan Dela Cruz"
+                placeholderTextColor="#A0AEC0"
+                autoCapitalize="words"
+                value={fullName}
+                onChangeText={setFullName}
+                onFocus={() => setIsNameFocused(true)}
+                onBlur={() => setIsNameFocused(false)}
+              />
+            </View>
+
+            {/* EMAIL */}
+            <Text style={styles.label}>Email Address</Text>
+            <View style={[styles.inputBox, isEmailFocused && styles.inputBoxFocused]}>
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={isEmailFocused ? COLORS.primary : COLORS.muted}
+                style={styles.leadingIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="name@gmail.com"
+                placeholderTextColor="#A0AEC0"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={email}
+                onChangeText={setEmail}
+                onFocus={() => setIsEmailFocused(true)}
+                onBlur={() => setIsEmailFocused(false)}
+              />
+            </View>
+
+            {/* PASSWORD */}
+            <Text style={styles.label}>Password (min. 6 chars & 1 number)</Text>
+            <View style={[styles.inputBox, isPasswordFocused && styles.inputBoxFocused]}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={isPasswordFocused ? COLORS.primary : COLORS.muted}
+                style={styles.leadingIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Create password"
+                placeholderTextColor="#A0AEC0"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.trailingIcon}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={COLORS.muted}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* CONFIRM PASSWORD */}
+            <Text style={styles.label}>Confirm Password</Text>
+            <View style={[styles.inputBox, isConfirmFocused && styles.inputBoxFocused]}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={isConfirmFocused ? COLORS.primary : COLORS.muted}
+                style={styles.leadingIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Repeat password"
+                placeholderTextColor="#A0AEC0"
+                secureTextEntry={!showConfirm}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                onFocus={() => setIsConfirmFocused(true)}
+                onBlur={() => setIsConfirmFocused(false)}
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirm(!showConfirm)}
+                style={styles.trailingIcon}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={showConfirm ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={COLORS.muted}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* TERMS & CONDITIONS CHECKBOX */}
+            <View style={styles.termsRow}>
+              <TouchableOpacity
+                style={[styles.checkbox, agree && styles.checkboxActive]}
+                onPress={() => setAgree(!agree)}
+                activeOpacity={0.8}
+              >
+                {agree && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+              </TouchableOpacity>
+
+              <Text style={styles.termsText}>
+                I agree to the{" "}
+                <Text style={styles.termsLink} onPress={() => router.push("/term")}>
+                  Terms & Conditions
+                </Text>
+              </Text>
+            </View>
+
+            {/* REGISTER BUTTON */}
+            <TouchableOpacity
+              style={[
+                styles.primaryBtn,
+                (!agree || loading) && { opacity: 0.6 },
+              ]}
+              disabled={!agree || loading}
+              onPress={handleRegister}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.primaryBtnText}>Create Account</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* DIVIDER */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or continue with</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* GOOGLE SIGN IN BUTTON */}
+            <TouchableOpacity
+              style={[styles.googleBtn, googleLoading && { opacity: 0.7 }]}
+              disabled={googleLoading}
+              onPress={handleGoogleSignIn}
+              activeOpacity={0.7}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color="#444" />
+              ) : (
+                <>
+                  <Image
+                    source={require("../assets/google.png")}
+                    style={styles.googleIcon}
+                  />
+                  <Text style={styles.googleText}>Sign up with Google</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* LOGIN LINK */}
+          <View style={styles.bottomRow}>
+            <Text style={styles.bottomText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => router.push("/login")} activeOpacity={0.7}>
+              <Text style={styles.link}>Login</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: { flex: 1, backgroundColor: COLORS.bg },
+  scrollContent: {
     flexGrow: 1,
-    backgroundColor: "#fff",
-    paddingTop: 80,
-    alignItems: "center",
+    paddingHorizontal: 28,
+    paddingTop: 36,
     paddingBottom: 40,
+    alignItems: "center",
   },
-  logoWrapper: { flexDirection: "row" },
+  logoWrapper: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   apex: { fontSize: 38, fontWeight: "900", color: "#14143A", letterSpacing: 3 },
   cs: { fontSize: 20, fontStyle: "italic", marginTop: 18, marginLeft: 2, color: "#386BF6" },
-  title: { fontSize: 28, fontWeight: "800", marginTop: 40, color: "#1F1F5A" },
-  form: { width: "75%", marginTop: 30 },
-  input: { backgroundColor: "#F2F2F2", padding: 18, borderRadius: 10, marginBottom: 12 },
-  label: { fontWeight: "600", color: "#1F1F5A", marginBottom: 6, marginTop: 10 },
-  passwordBox: {
+  header: { width: "100%", marginBottom: 20 },
+  title: { fontSize: 28, fontWeight: "800", color: "#1F1F5A" },
+  instructions: { fontSize: 14, color: COLORS.muted, marginTop: 4 },
+  form: { width: "100%" },
+  label: { fontSize: 13, fontWeight: "600", color: "#1F1F5A", marginBottom: 6, marginTop: 8 },
+  inputBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F2F2F2",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    marginBottom: 12,
+    backgroundColor: COLORS.inputBg,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.inputBorder,
+    paddingHorizontal: 14,
+    height: 52,
+    marginBottom: 6,
   },
-  passwordInput: { flex: 1, paddingVertical: 18 },
-  termsRow: { flexDirection: "row", alignItems: "center", marginTop: 10, width: "100%" },
+  inputBoxFocused: { borderColor: COLORS.inputBorderFocus, backgroundColor: "#FFFFFF" },
+  leadingIcon: { marginRight: 10 },
+  input: { flex: 1, height: "100%", fontSize: 15, color: COLORS.text },
+  trailingIcon: { padding: 4 },
+  termsRow: { flexDirection: "row", alignItems: "center", marginTop: 12, marginBottom: 18 },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: "#386BF6",
-    borderRadius: 4,
+    width: 22,
+    height: 22,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.inputBg,
+    borderRadius: 6,
     marginRight: 10,
     justifyContent: "center",
     alignItems: "center",
   },
-  checked: { width: 10, height: 10, backgroundColor: "#386BF6", borderRadius: 2 },
-  termsText: { color: "#444", fontSize: 13 },
-  termsLink: { color: "#386BF6", fontWeight: "700", textDecorationLine: "underline" },
-  primaryBtn: {
-    backgroundColor: "#386BF6",
-    width: 315,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 20,
+  checkboxActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
-  primaryBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  bottomText: { marginTop: 20, color: "#666" },
-  link: { color: "#386BF6", fontWeight: "700" },
+  termsText: { color: COLORS.text, fontSize: 13 },
+  termsLink: { color: COLORS.primary, fontWeight: "700", textDecorationLine: "underline" },
+  primaryBtn: {
+    backgroundColor: COLORS.primary,
+    width: "100%",
+    height: 52,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  primaryBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  dividerRow: { flexDirection: "row", alignItems: "center", marginVertical: 22 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
+  dividerText: { color: COLORS.muted, fontSize: 13, marginHorizontal: 12, fontWeight: "500" },
+  googleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: "#FFFFFF",
+    width: "100%",
+    height: 52,
+    borderRadius: 12,
+  },
+  googleIcon: { width: 20, height: 20, marginRight: 10, resizeMode: "contain" },
+  googleText: { color: "#444", fontSize: 14, fontWeight: "600" },
+  bottomRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 28 },
+  bottomText: { color: "#666", fontSize: 14 },
+  link: { color: COLORS.primary, fontWeight: "700", fontSize: 14 },
 });

@@ -930,7 +930,7 @@ const introStyles = StyleSheet.create({
     backgroundColor: "#fff",
     alignItems: "center",
     paddingHorizontal: 32,
-    paddingTop: 90,
+    paddingTop: 160,
   },
 
   backBtn: {
@@ -951,7 +951,7 @@ const introStyles = StyleSheet.create({
     borderRadius: 44,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 30,
   },
 
   title: {
@@ -1520,7 +1520,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     height: 52,
-    borderRadius: 14,
+    borderRadius: 12,
     gap: 4,
   },
 
@@ -1557,7 +1557,7 @@ const styles = StyleSheet.create({
   },
 
   correctBtn: {
-    backgroundColor: "#3CC873",
+    borderColor: "#3CC873",
   },
 
   correctBtnText: {
