@@ -8,7 +8,14 @@ import {
   Modal,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import AudioReaderButton from "../components/AudioReaderButton";
+import {
+  speakText,
+  stopSpeaking,
+  formatQuestionSpeech,
+} from "../lib/speechHelper";
 
 const LETTERS = ["A", "B", "C", "D"];
 
@@ -130,6 +137,7 @@ function QuestionNavigator({
           <View style={styles.questionGrid}>
             {questions.map((item, index) => {
               const isCurrent = index === currentIndex;
+              const isWrong = answers[item.id] === "wrong";
               const isAnswered = answers[item.id] !== undefined;
               const isSkipped = skippedQuestions[item.id] === true;
 
@@ -140,6 +148,10 @@ function QuestionNavigator({
               if (isCurrent) {
                 buttonStyle = styles.questionNumberCurrent;
                 textStyle = styles.questionNumberTextCurrent;
+              } else if (isWrong) {
+                buttonStyle = styles.questionNumberSkipped;
+                textStyle = styles.questionNumberTextSkipped;
+                icon = "close";
               } else if (isAnswered) {
                 buttonStyle = styles.questionNumberAnswered;
                 textStyle = styles.questionNumberTextAnswered;
@@ -162,9 +174,9 @@ function QuestionNavigator({
                       name={icon}
                       size={13}
                       color={
-                        isAnswered
-                          ? "#2FA84F"
-                          : "#D44A4A"
+                        isWrong || isSkipped
+                          ? "#D44A4A"
+                          : "#2FA84F"
                       }
                       style={styles.questionStatusIcon}
                     />
@@ -285,6 +297,8 @@ export default function ExamQuestionScreen({
   const [showQuestionNavigator, setShowQuestionNavigator] =
     useState(false);
 
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
   const timerRef = useRef(null);
 
   const flipAnim = useRef(new Animated.Value(0)).current;
@@ -326,10 +340,50 @@ export default function ExamQuestionScreen({
   }, [mode]);
 
   /* =========================================================
-     RESET FLASHCARD WHEN QUESTION CHANGES
+     TEXT-TO-SPEECH (TTS) CONTROLS
+  ========================================================= */
+
+  const handleToggleSpeech = () => {
+    if (isSpeaking) {
+      stopSpeaking();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const speechText = formatQuestionSpeech({
+      questionNumber: currentIndex + 1,
+      total,
+      questionText: question.question,
+      choices: question.choices,
+      mode,
+      isFlipped: flipped,
+      explanation: question.explanation,
+      selectedChoiceIndex: selected,
+      correctChoiceIndex: question.correctIndex,
+    });
+
+    speakText(speechText, {
+      onStart: () => setIsSpeaking(true),
+      onDone: () => setIsSpeaking(false),
+      onStopped: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  };
+
+  /* Stop speech when screen unmounts */
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+    };
+  }, []);
+
+  /* =========================================================
+     RESET FLASHCARD & SPEECH WHEN QUESTION CHANGES
   ========================================================= */
 
   useEffect(() => {
+    stopSpeaking();
+    setIsSpeaking(false);
     setFlipped(false);
     flipAnim.setValue(0);
   }, [currentIndex]);
@@ -339,6 +393,8 @@ export default function ExamQuestionScreen({
   ========================================================= */
 
   const goPrev = () => {
+    stopSpeaking();
+    setIsSpeaking(false);
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
     }
@@ -349,6 +405,8 @@ export default function ExamQuestionScreen({
   ========================================================= */
 
   const goNext = () => {
+    stopSpeaking();
+    setIsSpeaking(false);
     /*
      * If this is the last question,
      * submit the exam.
@@ -380,6 +438,8 @@ export default function ExamQuestionScreen({
   ========================================================= */
 
   const jumpToQuestion = (index) => {
+    stopSpeaking();
+    setIsSpeaking(false);
     setCurrentIndex(index);
     setShowQuestionNavigator(false);
   };
@@ -389,6 +449,11 @@ export default function ExamQuestionScreen({
   ========================================================= */
 
   const flipCard = () => {
+    if (isSpeaking) {
+      stopSpeaking();
+      setIsSpeaking(false);
+    }
+
     Animated.timing(flipAnim, {
       toValue: flipped ? 0 : 180,
       duration: 400,
@@ -403,6 +468,8 @@ export default function ExamQuestionScreen({
   ========================================================= */
 
   const handleFlashcardAnswer = (knewIt) => {
+    stopSpeaking();
+    setIsSpeaking(false);
     setAnswers((prev) => ({
       ...prev,
       [question.id]: knewIt ? "correct" : "wrong",
@@ -526,52 +593,68 @@ export default function ExamQuestionScreen({
      MAIN UI
   ========================================================= */
 
+  const isFlashcardMode = mode === "flashcards";
+  const ContainerComp = isFlashcardMode ? LinearGradient : View;
+  const containerProps = isFlashcardMode
+    ? {
+        colors: ["#1C3FA8", "#132D82"],
+        style: styles.container,
+      }
+    : {
+        style: styles.container,
+      };
+
   return (
-    <View style={styles.container}>
+    <ContainerComp {...containerProps}>
+      <StatusBar style="light" />
+
       {/* =====================================================
           HEADER
       ===================================================== */}
 
-      <LinearGradient
-        colors={["#4D79FF", "#2346B8"]}
-        style={styles.header}
-      >
-        <View style={styles.topRow}>
-          {/* BACK BUTTON */}
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={22}
-              color="#fff"
-            />
-          </TouchableOpacity>
+      {isFlashcardMode ? (
+        <View style={styles.headerFlashcards}>
+          <View style={styles.topRow}>
+            {/* BACK BUTTON */}
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => {
+                stopSpeaking();
+                setIsSpeaking(false);
+                onBack();
+              }}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={22}
+                color="#fff"
+              />
+            </TouchableOpacity>
 
-          {/* TITLE */}
-          <View
-            style={{
-              flex: 1,
-              alignItems: "center",
-            }}
-          >
-            <Text style={styles.headerTitle}>
-              {subjectLabel}
-            </Text>
+            {/* TITLE */}
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+              }}
+            >
+              <Text style={styles.headerTitle}>
+                {subjectLabel}
+              </Text>
 
-            <Text style={styles.headerSubtitle}>
-              {levelLabel}
-            </Text>
-          </View>
+              <Text style={styles.headerSubtitle}>
+                {levelLabel}
+              </Text>
+            </View>
 
-          {/* QUESTION NAVIGATOR BUTTON */}
-          {mode !== "flashcards" ? (
+            {/* QUESTION NAVIGATOR BUTTON (PAGINATION) */}
             <TouchableOpacity
               style={styles.questionNavigatorBtn}
-              onPress={() =>
-                setShowQuestionNavigator(true)
-              }
+              onPress={() => {
+                stopSpeaking();
+                setIsSpeaking(false);
+                setShowQuestionNavigator(true);
+              }}
               activeOpacity={0.8}
             >
               <Ionicons
@@ -580,71 +663,153 @@ export default function ExamQuestionScreen({
                 color="#fff"
               />
             </TouchableOpacity>
-          ) : (
-            /*
-             * Keep the same width as the navigator button
-             * so the title stays perfectly centered.
-             */
-            <View style={styles.headerRightPlaceholder} />
-          )}
-        </View>
-
-        {/* PROGRESS */}
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${progress}%`,
-              },
-            ]}
-          />
-        </View>
-
-        {/* META */}
-        <View style={styles.metaRow}>
-          <View style={styles.pill}>
-            <Text style={styles.pillText}>
-              Question {currentIndex + 1} out of {total}
-            </Text>
           </View>
 
-          {mode === "timed" && (
-            <View style={styles.pill}>
-              <Ionicons
-                name="time-outline"
-                size={13}
-                color="#fff"
-              />
+          {/* PROGRESS */}
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${progress}%`,
+                },
+              ]}
+            />
+          </View>
 
-              <Text
-                style={[
-                  styles.pillText,
-                  { marginLeft: 4 },
-                ]}
-              >
-                {formatTime(timeLeft)}
+          {/* META / PAGINATION ROW */}
+          <View style={styles.metaRow}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                stopSpeaking();
+                setIsSpeaking(false);
+                setShowQuestionNavigator(true);
+              }}
+              style={styles.metaClickable}
+            >
+              <Text style={styles.flashcardMetaText}>
+                Question {currentIndex + 1} out of {total}
               </Text>
-            </View>
-          )}
+              <Ionicons
+                name="grid-outline"
+                size={13}
+                color="rgba(255,255,255,0.75)"
+              />
+            </TouchableOpacity>
 
-          {mode === "flashcards" && (
-            <View style={styles.pill}>
-              <Text style={styles.pillText}>
+            <View style={styles.flashcardBadgePill}>
+              <Text style={styles.flashcardBadgeText}>
                 Flashcards
               </Text>
             </View>
-          )}
+          </View>
+        </View>
+      ) : (
+        <LinearGradient
+          colors={["#4D79FF", "#2346B8"]}
+          style={styles.header}
+        >
+          <View style={styles.topRow}>
+            {/* BACK BUTTON */}
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => {
+                stopSpeaking();
+                setIsSpeaking(false);
+                onBack();
+              }}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={22}
+                color="#fff"
+              />
+            </TouchableOpacity>
 
-          {mode === "review" && (
-            <View style={styles.pill}>
-              <Text style={styles.pillText}>
-                Review
+            {/* TITLE */}
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+              }}
+            >
+              <Text style={styles.headerTitle}>
+                {subjectLabel}
+              </Text>
+
+              <Text style={styles.headerSubtitle}>
+                {levelLabel}
               </Text>
             </View>
-          )}
-        </View>
-      </LinearGradient>
+
+            {/* QUESTION NAVIGATOR BUTTON */}
+            <TouchableOpacity
+              style={styles.questionNavigatorBtn}
+              onPress={() => {
+                stopSpeaking();
+                setIsSpeaking(false);
+                setShowQuestionNavigator(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name="grid-outline"
+                size={20}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* PROGRESS */}
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${progress}%`,
+                },
+              ]}
+            />
+          </View>
+
+          {/* META */}
+          <View style={styles.metaRow}>
+            <View style={styles.pill}>
+              <Text style={styles.pillText}>
+                Question {currentIndex + 1} out of {total}
+              </Text>
+            </View>
+
+            {mode === "timed" && (
+              <View style={styles.pill}>
+                <Ionicons
+                  name="time-outline"
+                  size={13}
+                  color="#fff"
+                />
+
+                <Text
+                  style={[
+                    styles.pillText,
+                    { marginLeft: 4 },
+                  ]}
+                >
+                  {formatTime(timeLeft)}
+                </Text>
+              </View>
+            )}
+
+            {mode === "review" && (
+              <View style={styles.pill}>
+                <Text style={styles.pillText}>
+                  Review
+                </Text>
+              </View>
+            )}
+          </View>
+        </LinearGradient>
+      )}
 
       {/* =====================================================
           QUESTION NAVIGATOR MODAL
@@ -667,11 +832,19 @@ export default function ExamQuestionScreen({
           FLASHCARD
       ===================================================== */}
 
-      {mode === "flashcards" ? (
+      {isFlashcardMode ? (
         <View style={styles.flashcardArea}>
+          <View style={styles.flashcardAudioRow}>
+            <AudioReaderButton
+              isSpeaking={isSpeaking}
+              onPress={handleToggleSpeech}
+            />
+          </View>
+
           <TouchableOpacity
-            activeOpacity={0.9}
+            activeOpacity={0.95}
             onPress={flipCard}
+            style={styles.cardTouchable}
           >
             <View style={styles.flipContainer}>
               {/* FRONT — QUESTION */}
@@ -688,24 +861,25 @@ export default function ExamQuestionScreen({
                   },
                 ]}
               >
-                <Text style={styles.brand}>
-                  APEX
-                  <Text
-                    style={{
-                      color: "#7D8FB3",
-                    }}
-                  >
-                    CS
+                <View style={styles.flashcardTopRow}>
+                  <View style={styles.brandRow}>
+                    <Text style={styles.brandApex}>APEX</Text>
+                    <Text style={styles.brandCs}>cs</Text>
+                  </View>
+                </View>
+
+                <View style={styles.flashcardBody}>
+                  <Text style={styles.flashcardText}>
+                    {question.question}
                   </Text>
-                </Text>
+                </View>
 
-                <Text style={styles.flashcardText}>
-                  {question.question}
-                </Text>
-
-                <Text style={styles.flipHint}>
-                  Tap to reveal answer
-                </Text>
+                <View style={styles.flipHintRow}>
+                  <Ionicons name="swap-horizontal" size={13} color="#8FA0BD" />
+                  <Text style={styles.flipHintText}>
+                    Tap to reveal answer
+                  </Text>
+                </View>
               </Animated.View>
 
               {/* BACK — ANSWER */}
@@ -723,25 +897,33 @@ export default function ExamQuestionScreen({
                   },
                 ]}
               >
-                <Text style={styles.answerLabel}>
-                  ANSWER
-                </Text>
+                <View style={styles.flashcardTopRow}>
+                  <View style={styles.brandRow}>
+                    <Text style={styles.brandApex}>APEX</Text>
+                    <Text style={styles.brandCs}>cs</Text>
+                  </View>
 
-                <Text
-                  style={
-                    styles.flashcardAnswerText
-                  }
-                >
-                  {
-                    question.choices[
-                      question.correctIndex
-                    ]
-                  }
-                </Text>
+                  <View style={styles.answerBadge}>
+                    <Text style={styles.answerBadgeText}>ANSWER</Text>
+                  </View>
+                </View>
 
-                <Text style={styles.flipHint}>
-                  Tap to see question
-                </Text>
+                <View style={styles.flashcardBody}>
+                  <Text style={styles.flashcardAnswerText}>
+                    {
+                      question.choices[
+                        question.correctIndex
+                      ]
+                    }
+                  </Text>
+                </View>
+
+                <View style={styles.flipHintRow}>
+                  <Ionicons name="swap-horizontal" size={13} color="#8FA0BD" />
+                  <Text style={styles.flipHintText}>
+                    Tap to see question
+                  </Text>
+                </View>
               </Animated.View>
             </View>
           </TouchableOpacity>
@@ -752,7 +934,24 @@ export default function ExamQuestionScreen({
         ===================================================== */
 
         <View style={styles.questionArea}>
-          <Text style={styles.questionText}>
+          <View style={styles.questionHeaderBar}>
+            <View style={styles.questionIndexPill}>
+              <Text style={styles.questionIndexText}>
+                QUESTION {currentIndex + 1}
+              </Text>
+            </View>
+
+            <AudioReaderButton
+              isSpeaking={isSpeaking}
+              onPress={handleToggleSpeech}
+            />
+          </View>
+
+          <Text
+            style={styles.questionText}
+            accessible={true}
+            accessibilityRole="header"
+          >
             {question.question}
           </Text>
 
@@ -765,6 +964,10 @@ export default function ExamQuestionScreen({
                   selectChoice(i)
                 }
                 activeOpacity={0.8}
+                accessible={true}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: selected === i }}
+                accessibilityLabel={`Option ${LETTERS[i]}: ${choice}`}
               >
                 <View style={styles.letterCircle}>
                   <Text
@@ -820,51 +1023,101 @@ export default function ExamQuestionScreen({
           FOOTER
       ===================================================== */}
 
-      <View style={styles.footer}>
-        {mode === "flashcards" ? (
-          <>
-            {/* DIDN'T KNOW */}
-            <TouchableOpacity
-              style={[
-                styles.navBtn,
-                styles.wrongBtn,
-              ]}
-              onPress={() =>
-                handleFlashcardAnswer(false)
-              }
-            >
-              <Ionicons
-                name="close"
-                size={18}
-                color="#fff"
-              />
+      <View style={isFlashcardMode ? styles.footerFlashcards : styles.footer}>
+        {isFlashcardMode ? (
+          <View style={styles.flashcardFooterContent}>
+            {/* ROW 1: CHECK & WRONG ACTIONS */}
+            <View style={styles.gradingRow}>
+              {/* DIDN'T KNOW */}
+              <TouchableOpacity
+                style={[
+                  styles.gradeBtn,
+                  styles.gradeBtnWrong,
+                  answers[question.id] === "wrong" && styles.gradeBtnWrongActive,
+                ]}
+                onPress={() => handleFlashcardAnswer(false)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={19}
+                  color={answers[question.id] === "wrong" ? "#FFFFFF" : "#F87171"}
+                />
+                <Text
+                  style={[
+                    styles.gradeBtnText,
+                    styles.gradeBtnWrongText,
+                    answers[question.id] === "wrong" && styles.gradeBtnTextActive,
+                  ]}
+                >
+                  Didn't Know
+                </Text>
+              </TouchableOpacity>
 
-              <Text style={styles.wrongBtnText}>
-                Didn't Know
-              </Text>
-            </TouchableOpacity>
+              {/* KNEW IT */}
+              <TouchableOpacity
+                style={[
+                  styles.gradeBtn,
+                  styles.gradeBtnCorrect,
+                  answers[question.id] === "correct" && styles.gradeBtnCorrectActive,
+                ]}
+                onPress={() => handleFlashcardAnswer(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="checkmark-circle"
+                  size={19}
+                  color={answers[question.id] === "correct" ? "#FFFFFF" : "#4ADE80"}
+                />
+                <Text
+                  style={[
+                    styles.gradeBtnText,
+                    styles.gradeBtnCorrectText,
+                    answers[question.id] === "correct" && styles.gradeBtnTextActive,
+                  ]}
+                >
+                  Knew It
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-            {/* KNEW IT */}
-            <TouchableOpacity
-              style={[
-                styles.navBtn,
-                styles.correctBtn,
-              ]}
-              onPress={() =>
-                handleFlashcardAnswer(true)
-              }
-            >
-              <Ionicons
-                name="checkmark"
-                size={18}
-                color="#fff"
-              />
+            {/* ROW 2: PREVIOUS & NEXT (MATCHING FIGMA) */}
+            <View style={styles.navRowFlashcards}>
+              <TouchableOpacity
+                style={[
+                  styles.figmaNavBtn,
+                  currentIndex === 0 && styles.figmaNavBtnDisabled,
+                ]}
+                onPress={goPrev}
+                disabled={currentIndex === 0}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="chevron-back"
+                  size={18}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.figmaNavBtnText}>
+                  Previous
+                </Text>
+              </TouchableOpacity>
 
-              <Text style={styles.correctBtnText}>
-                Knew It
-              </Text>
-            </TouchableOpacity>
-          </>
+              <TouchableOpacity
+                style={styles.figmaNavBtn}
+                onPress={goNext}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.figmaNavBtnText}>
+                  {isLast ? "Finish" : "Next"}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color="#FFFFFF"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
         ) : (
           <>
             {/* PREVIOUS */}
@@ -916,7 +1169,7 @@ export default function ExamQuestionScreen({
           </>
         )}
       </View>
-    </View>
+    </ContainerComp>
   );
 }
 
@@ -1310,29 +1563,75 @@ const styles = StyleSheet.create({
      FLASHCARDS
   ======================================================= */
 
+  headerFlashcards: {
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    backgroundColor: "transparent",
+  },
+
+  flashcardMetaText: {
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  metaClickable: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  flashcardBadgePill: {
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+
+  flashcardBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  flashcardAudioRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: 10,
+  },
+
   flashcardArea: {
     flex: 1,
-    paddingHorizontal: 40,
-    paddingTop: 110,
+    paddingHorizontal: 22,
+    paddingTop: 16,
+    paddingBottom: 10,
+    justifyContent: "center",
+  },
+
+  cardTouchable: {
+    width: "100%",
   },
 
   flipContainer: {
-    minHeight: 320,
+    width: "100%",
+    height: 350,
   },
 
   flashcard: {
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
     borderRadius: 24,
-    padding: 30,
-    minHeight: 320,
+    padding: 24,
+    height: 350,
+    justifyContent: "space-between",
     shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
     shadowOffset: {
       width: 0,
       height: 8,
     },
-    elevation: 4,
+    elevation: 8,
   },
 
   flashcardFace: {
@@ -1340,49 +1639,88 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+    bottom: 0,
     backfaceVisibility: "hidden",
   },
 
   flashcardBack: {
-    backgroundColor: "#EEF4FF",
+    backgroundColor: "#FFFFFF",
   },
 
-  brand: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#386BF6",
-    marginBottom: 20,
+  flashcardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
 
-  answerLabel: {
-    fontSize: 12,
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+
+  brandApex: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#14143A",
+    letterSpacing: -0.2,
+  },
+
+  brandCs: {
+    fontSize: 14,
     fontWeight: "800",
-    color: "#386BF6",
-    letterSpacing: 1,
-    marginBottom: 20,
+    color: "#5B74BC",
+  },
+
+  answerBadge: {
+    backgroundColor: "#E9F8EE",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+
+  answerBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#2FA84F",
+    letterSpacing: 0.5,
+  },
+
+  flashcardBody: {
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: 8,
   },
 
   flashcardText: {
-    fontSize: 17,
-    paddingTop: 30,
-    fontWeight: "700",
-    color: "#14143A",
-    lineHeight: 26,
-  },
-
-  flashcardAnswerText: {
-    fontSize: 19,
-    paddingTop: 20,
+    fontSize: 18,
     fontWeight: "800",
     color: "#14143A",
     lineHeight: 27,
+    textAlign: "left",
   },
 
-  flipHint: {
-    marginTop: 52,
+  flashcardAnswerText: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#14143A",
+    lineHeight: 28,
+    textAlign: "left",
+  },
+
+  flipHintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F4F6FB",
+  },
+
+  flipHintText: {
     fontSize: 12,
-    color: "#B7C1D6",
-    textAlign: "center",
+    color: "#8FA0BD",
+    fontWeight: "600",
   },
 
   /* =======================================================
@@ -1392,7 +1730,28 @@ const styles = StyleSheet.create({
   questionArea: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 18,
+  },
+
+  questionHeaderBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+
+  questionIndexPill: {
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+
+  questionIndexText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#386BF6",
+    letterSpacing: 0.5,
   },
 
   questionText: {
@@ -1564,5 +1923,105 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
     fontSize: 14,
+  },
+
+  /* =======================================================
+     FLASHCARDS FOOTER & BUTTONS (FIGMA DESIGN)
+  ======================================================= */
+
+  footerFlashcards: {
+    paddingHorizontal: 22,
+    paddingBottom: 32,
+    paddingTop: 8,
+    backgroundColor: "transparent",
+  },
+
+  flashcardFooterContent: {
+    gap: 12,
+  },
+
+  gradingRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+
+  gradeBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.14)",
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+  },
+
+  gradeBtnWrong: {
+    backgroundColor: "rgba(239, 68, 68, 0.16)",
+    borderColor: "rgba(248, 113, 113, 0.4)",
+  },
+
+  gradeBtnWrongActive: {
+    backgroundColor: "#DC2626",
+    borderColor: "#DC2626",
+  },
+
+  gradeBtnCorrect: {
+    backgroundColor: "rgba(74, 222, 128, 0.16)",
+    borderColor: "rgba(74, 222, 128, 0.4)",
+  },
+
+  gradeBtnCorrectActive: {
+    backgroundColor: "#16A34A",
+    borderColor: "#16A34A",
+  },
+
+  gradeBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+
+  gradeBtnWrongText: {
+    color: "#FCA5A5",
+  },
+
+  gradeBtnCorrectText: {
+    color: "#86EFAC",
+  },
+
+  gradeBtnTextActive: {
+    color: "#FFFFFF",
+  },
+
+  navRowFlashcards: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 14,
+  },
+
+  figmaNavBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.28)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+
+  figmaNavBtnDisabled: {
+    opacity: 0.35,
+  },
+
+  figmaNavBtnText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
 }); 

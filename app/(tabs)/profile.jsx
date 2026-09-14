@@ -545,9 +545,9 @@ const styles = StyleSheet.create({
   },
   screenHeading: {
     color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-    opacity: 0.9,
+    fontSize: 15,
+    fontWeight: "700",
+    opacity: 0.95,
     letterSpacing: 0.5,
   },
   profileRow: {
@@ -574,8 +574,8 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   profileName: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "800",
     color: "#FFFFFF",
     letterSpacing: -0.3,
   },
@@ -583,19 +583,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: PALETTE.lightBlue,
     marginTop: 2,
+    fontWeight: "500",
   },
   badgePill: {
     backgroundColor: "rgba(255, 255, 255, 0.18)",
     alignSelf: "flex-start",
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 12,
     marginTop: 6,
   },
   badgePillText: {
     color: "#FFFFFF",
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
   /* Body Container */
@@ -606,69 +607,63 @@ const styles = StyleSheet.create({
 
   /* Target Exam Hero Banner */
   targetExamCard: {
-    backgroundColor: PALETTE.panelBlue,
-    borderColor: PALETTE.panelBlueBorder,
-    borderWidth: 1.5,
-    borderRadius: 18,
-    padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: PALETTE.navy,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    elevation: 2,
   },
   calendarIconCircle: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: PALETTE.card,
+    borderRadius: 14,
+    backgroundColor: "#EEF3FF",
     justifyContent: "center",
     alignItems: "center",
   },
   examCardSub: {
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "700",
     color: PALETTE.muted,
     textTransform: "uppercase",
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
   examCardDate: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: PALETTE.navy,
+    fontSize: 16,
+    fontWeight: "800",
+    color: PALETTE.text,
     marginTop: 2,
   },
   daysRemainingBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: PALETTE.card,
+    backgroundColor: "#EEF3FF",
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: PALETTE.panelBlueBorder,
+    borderRadius: 12,
     gap: 4,
   },
   daysRemainingText: {
     fontSize: 12,
-    fontWeight: "700",
-    color: PALETTE.navy,
+    fontWeight: "800",
+    color: PALETTE.primary,
   },
 
   /* Section Title */
   sectionHeaderTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: PALETTE.navy,
+    fontSize: 18,
+    fontWeight: "800",
+    color: PALETTE.text,
     marginBottom: 12,
     letterSpacing: -0.2,
   },
@@ -682,31 +677,38 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   metricBox: {
-    backgroundColor: PALETTE.card,
+    backgroundColor: "#FFFFFF",
     width: "48%",
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    elevation: 2,
   },
   metricIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 10,
   },
   metricVal: {
-    fontSize: 19,
+    fontSize: 22,
     fontWeight: "800",
     color: PALETTE.text,
   },
   metricLbl: {
     fontSize: 12,
     color: PALETTE.muted,
-    marginTop: 2,
-    fontWeight: "500",
+    marginTop: 3,
+    fontWeight: "600",
   },
   loaderContainer: {
     paddingVertical: 20,
@@ -715,12 +717,19 @@ const styles = StyleSheet.create({
 
   /* Cards */
   card: {
-    backgroundColor: PALETTE.card,
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    marginBottom: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    elevation: 2,
   },
   cardHeaderRow: {
     flexDirection: "row",
@@ -729,8 +738,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   cardTitle: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "800",
     color: PALETTE.text,
   },
   statusTag: {
@@ -740,7 +749,7 @@ const styles = StyleSheet.create({
   },
   statusTagText: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "800",
   },
 
   /* Progress Bar & Markers */
@@ -794,10 +803,11 @@ const styles = StyleSheet.create({
   subStatLabel: {
     fontSize: 11,
     color: PALETTE.muted,
+    fontWeight: "600",
   },
   subStatValue: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "800",
     color: PALETTE.text,
     marginTop: 3,
   },
@@ -821,7 +831,7 @@ const styles = StyleSheet.create({
   milestoneItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: PALETTE.border,
   },
@@ -833,28 +843,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   milestoneTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
     color: PALETTE.text,
   },
   milestoneSub: {
-    fontSize: 11,
+    fontSize: 12,
     color: PALETTE.muted,
     marginTop: 2,
+    fontWeight: "500",
   },
 
   /* Setting Rows */
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 13,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: PALETTE.border,
   },
   settingIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     backgroundColor: PALETTE.panelBlue,
     justifyContent: "center",
     alignItems: "center",
@@ -864,7 +875,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: PALETTE.text,
-    fontWeight: "500",
+    fontWeight: "600",
   },
 
   /* Standalone Logout Button */

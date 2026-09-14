@@ -21,6 +21,7 @@ import * as Linking from "expo-linking";
 
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
+import { createSessionFromUrl } from "../lib/authHelper";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -118,6 +119,7 @@ export default function Register() {
 
   /* ================= GOOGLE REGISTRATION VIA SUPABASE ================= */
   const handleGoogleSignIn = async () => {
+    let linkingSub = null;
     try {
       setGoogleLoading(true);
       const redirectUrl = Linking.createURL("dashboard");
@@ -131,25 +133,67 @@ export default function Register() {
       });
 
       if (error) throw error;
+      if (!data?.url) {
+        throw new Error("Supabase did not return an authentication URL. Please verify Google provider is enabled in your Supabase dashboard.");
+      }
 
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-
-        if (result.type === "success" && result.url) {
-          const parsed = Linking.parse(result.url);
-
-          if (parsed.queryParams?.access_token && parsed.queryParams?.refresh_token) {
-            await supabase.auth.setSession({
-              access_token: parsed.queryParams.access_token,
-              refresh_token: parsed.queryParams.refresh_token,
-            });
+      // Channel 1: Listen for Android deep link intent while browser is open
+      let redirected = false;
+      linkingSub = Linking.addEventListener("url", async (event) => {
+        if (!redirected && event.url && (event.url.includes("code=") || event.url.includes("access_token="))) {
+          redirected = true;
+          try {
+            const s = await createSessionFromUrl(event.url);
+            if (s) {
+              router.replace("/dashboard");
+            }
+          } catch (e) {
+            console.error("Linking redirect error:", e);
           }
-          router.replace("/dashboard");
         }
+      });
+
+      // Channel 2: Open Auth Session via browser
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+      if (linkingSub) {
+        linkingSub.remove();
+        linkingSub = null;
+      }
+
+      if (result.type === "success" && result.url) {
+        redirected = true;
+        const session = await createSessionFromUrl(result.url);
+        if (session) {
+          router.replace("/dashboard");
+          return;
+        }
+      }
+
+      // Channel 3: Fallback check (handles cases where Android closed Custom Tabs upon deep link)
+      let activeSession = (await supabase.auth.getSession()).data?.session;
+      if (!activeSession) {
+        for (let i = 0; i < 4; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          activeSession = (await supabase.auth.getSession()).data?.session;
+          if (activeSession) break;
+        }
+      }
+
+      if (activeSession) {
+        router.replace("/dashboard");
+        return;
+      }
+
+      if (result.type !== "cancel" && result.type !== "dismiss") {
+        Alert.alert("Google Sign-In", "No active session received. Please try again.");
       }
     } catch (err) {
       Alert.alert("Google Sign-In", err.message || "Unable to complete Google registration.");
     } finally {
+      if (linkingSub) {
+        linkingSub.remove();
+      }
       setGoogleLoading(false);
     }
   };

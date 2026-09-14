@@ -1,5 +1,14 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
+import * as Linking from "expo-linking";
+
 import { supabase } from "../lib/supabase";
+import { createSessionFromUrl } from "../lib/authHelper";
 
 const AuthContext = createContext(null);
 
@@ -8,51 +17,233 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    let mounted = true;
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
+    // ==========================================
+    // 1. GET EXISTING SESSION
+    // ==========================================
+
+    const initializeAuth = async () => {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error(
+            "Initial session error:",
+            error
+          );
+        }
+
+        if (mounted) {
+          setSession(session ?? null);
+          setLoading(false);
+        }
+
+        console.log(
+          "Initial session:",
+          session?.user?.email ?? "No session"
+        );
+      } catch (error) {
+        console.error(
+          "Auth initialization error:",
+          error
+        );
+
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    initializeAuth();
+
+    // ==========================================
+    // 2. SUPABASE AUTH STATE LISTENER
+    // ==========================================
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log(
+          "Supabase auth event:",
+          event
+        );
+
+        console.log(
+          "Authenticated user:",
+          session?.user?.email ?? "No user"
+        );
+
+        if (mounted) {
+          setSession(session ?? null);
+          setLoading(false);
+        }
       }
     );
 
-    return () => listener.subscription.unsubscribe();
+    // ==========================================
+    // 3. HANDLE OAUTH DEEP LINK
+    // ==========================================
+
+    const handleDeepLink = async (url) => {
+      if (!url) return;
+
+      console.log(
+        "Received deep link:",
+        url
+      );
+
+      const isOAuthCallback =
+        url.includes("code=") ||
+        url.includes("access_token=");
+
+      if (!isOAuthCallback) {
+        return;
+      }
+
+      try {
+        const newSession =
+          await createSessionFromUrl(url);
+
+        if (newSession && mounted) {
+          console.log(
+            "OAuth login successful:",
+            newSession.user?.email
+          );
+
+          setSession(newSession);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error(
+          "OAuth deep link error:",
+          error
+        );
+      }
+    };
+
+    // ==========================================
+    // 4. LISTEN FOR DEEP LINKS
+    // ==========================================
+
+    const linkingSubscription =
+      Linking.addEventListener(
+        "url",
+        ({ url }) => {
+          handleDeepLink(url);
+        }
+      );
+
+    // ==========================================
+    // 5. HANDLE INITIAL DEEP LINK
+    // ==========================================
+
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink(url);
+      }
+    });
+
+    // ==========================================
+    // CLEANUP
+    // ==========================================
+
+    return () => {
+      mounted = false;
+
+      subscription.unsubscribe();
+
+      linkingSubscription.remove();
+    };
   }, []);
 
-  // fullName gets saved into auth.users.user_metadata,
-  // and your handle_new_user() trigger copies it into profiles.full_name
-  const signUp = async ({ fullName, email, password }) => {
-    const { data, error } = await supabase.auth.signUp({
+  // ==========================================
+  // EMAIL/PASSWORD SIGN UP
+  // ==========================================
+
+  const signUp = async ({
+    fullName,
+    email,
+    password,
+  }) => {
+    const {
+      data,
+      error,
+    } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+
+      options: {
+        data: {
+          full_name: fullName,
+        },
+      },
     });
-    return { data, error };
+
+    return {
+      data,
+      error,
+    };
   };
 
-  const signIn = async ({ email, password }) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+  // ==========================================
+  // EMAIL/PASSWORD LOGIN
+  // ==========================================
+
+  const signIn = async ({
+    email,
+    password,
+  }) => {
+    const {
+      data,
+      error,
+    } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    return { data, error };
+
+    return {
+      data,
+      error,
+    };
   };
+
+  // ==========================================
+  // LOGOUT
+  // ==========================================
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
+    const { error } =
+      await supabase.auth.signOut();
+
+    return {
+      error,
+    };
   };
+
+  // ==========================================
+  // PROVIDER
+  // ==========================================
 
   return (
     <AuthContext.Provider
-      value={{ session, user: session?.user ?? null, loading, signUp, signIn, signOut }}
+      value={{
+        session,
+        user: session?.user ?? null,
+        loading,
+        signUp,
+        signIn,
+        signOut,
+      }}
     >
       {children}
     </AuthContext.Provider>
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () =>
+  useContext(AuthContext);

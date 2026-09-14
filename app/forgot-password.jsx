@@ -212,7 +212,7 @@ export default function ForgotPassword() {
               </>
             )}
 
-            {/* STEP 2: 6-DIGIT NUMERIC CODE */}
+          
             {step === 2 && (
               <>
                 <Text style={styles.label}>6-Digit Verification Code</Text>

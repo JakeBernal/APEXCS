@@ -5,9 +5,11 @@ import { Ionicons } from "@expo/vector-icons";
 import ExamQuestionScreen from "./ExamQuestionScreen";
 import ExamResultScreen from "./ExamResultScreen";
 import SubmitExamModal from "./SubmitExamModal";
+import QuitExamModal from "./QuitExamModal";
 import { buildQuestionSet } from "../lib/examData";
 import { saveAttempt } from "../lib/attempts";
-// import { ExamQuestionSkeleton } from "../components/ExamQuestionSkeleton";
+import { stopSpeaking } from "../lib/speechHelper";
+import { ExamQuestionSkeleton } from "./components/ExamQuestionSkeleton";
 
 
 const TIMED_DURATION = {
@@ -120,17 +122,21 @@ export default function ExamSession({ subject, level, mode, onExit }) {
   const [answers, setAnswers] = useState({}); // { [questionId]: choiceIndex }
   const [timeLeft, setTimeLeft] = useState(TIMED_DURATION[level] ?? TIMED_DURATION.professional);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showQuitModal, setShowQuitModal] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
 
   const subjectLabel = subject ? subject.title : "All Categories";
   const levelLabel = level === "professional" ? "Professional" : "Sub-Professional";
 
   const resetSession = () => {
+    stopSpeaking();
     setScreen("question");
     setCurrentIndex(0);
     setAnswers({});
     setTimeLeft(TIMED_DURATION[level] ?? TIMED_DURATION.professional);
     setTimeUp(false);
+    setShowQuitModal(false);
+    setShowSubmitModal(false);
   };
 
  const finalizeExam = (answersOverride = answers) => {
@@ -201,6 +207,7 @@ export default function ExamSession({ subject, level, mode, onExit }) {
   const [results, setResults] = useState(null);
 
   const handleSubmit = async () => {
+    stopSpeaking();
     const r = finalizeExam();
     setResults(r);
 
@@ -230,6 +237,7 @@ export default function ExamSession({ subject, level, mode, onExit }) {
   };
 
   const handleTimeUp = () => {
+    stopSpeaking();
     setTimeUp(true);
   };
 
@@ -238,33 +246,58 @@ export default function ExamSession({ subject, level, mode, onExit }) {
   };
 
   const handleBackFromQuestion = () => {
-    if (mode === "flashcards") {
-      onExit();
-    } else {
-      setShowSubmitModal(true);
-    }
+    setShowQuitModal(true);
   };
 
-  // if (loadingQuestions) {
-  //   return <ExamQuestionSkeleton />;
-  // }
+  const handleConfirmQuit = () => {
+    stopSpeaking();
+    setShowQuitModal(false);
+    setShowSubmitModal(false);
+    onExit();
+  };
+
+  if (loadingQuestions) {
+    return <ExamQuestionSkeleton />;
+  }
 
   if (loadError) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
-        <Text style={{ textAlign: "center", color: "#E74C3C", fontSize: 15 }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: "#F7F9FC" }}>
+        <Ionicons name="cloud-offline-outline" size={54} color="#EF4444" style={{ marginBottom: 16 }} />
+        <Text style={{ textAlign: "center", color: "#14143A", fontSize: 18, fontWeight: "800", marginBottom: 8 }}>
+          Unable to Load Questions
+        </Text>
+        <Text style={{ textAlign: "center", color: "#7D8FB3", fontSize: 14, lineHeight: 20, marginBottom: 24, maxWidth: 280 }}>
           {loadError}
         </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: "#386BF6", paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12 }}
+          onPress={onExit}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   if (questions.length === 0) {
+    const levelName = level === "sub" ? "Sub-Professional" : "Professional";
+    const categoryName = subject?.title ? ` for ${subject.title}` : "";
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
-        <Text style={{ textAlign: "center", color: "#7D8FB3", fontSize: 15 }}>
-          No published questions found for Sub-Professional yet.
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: "#F7F9FC" }}>
+        <Ionicons name="document-text-outline" size={54} color="#BAC7D5" style={{ marginBottom: 16 }} />
+        <Text style={{ textAlign: "center", color: "#14143A", fontSize: 18, fontWeight: "800", marginBottom: 8 }}>
+          No Questions Available
         </Text>
+        <Text style={{ textAlign: "center", color: "#7D8FB3", fontSize: 14, lineHeight: 20, marginBottom: 24, maxWidth: 280 }}>
+          {`No published questions found${categoryName} (${levelName}) yet.`}
+        </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: "#386BF6", paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12 }}
+          onPress={onExit}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -274,7 +307,10 @@ export default function ExamSession({ subject, level, mode, onExit }) {
       <ExamResultScreen
         results={results}
         onRetake={resetSession}
-        onHome={onExit}
+        onHome={() => {
+          stopSpeaking();
+          onExit();
+        }}
       />
     );
   }
@@ -305,6 +341,13 @@ export default function ExamSession({ subject, level, mode, onExit }) {
         visible={showSubmitModal}
         onCancel={() => setShowSubmitModal(false)}
         onSubmit={handleSubmit}
+        onQuit={handleConfirmQuit}
+      />
+
+      <QuitExamModal
+        visible={showQuitModal}
+        onContinue={() => setShowQuitModal(false)}
+        onQuit={handleConfirmQuit}
       />
     </View>
   );

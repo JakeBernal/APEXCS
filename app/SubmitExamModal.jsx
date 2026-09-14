@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-export default function SubmitExamModal({ visible, onCancel, onSubmit }) {
+export default function SubmitExamModal({ visible, onCancel, onSubmit, onQuit }) {
   if (!visible) return null;
 
   return (
@@ -30,6 +30,18 @@ export default function SubmitExamModal({ visible, onCancel, onSubmit }) {
             <Text style={styles.submitText}>Submit</Text>
           </TouchableOpacity>
         </View>
+
+        {onQuit ? (
+          <TouchableOpacity
+            style={styles.quitLink}
+            onPress={onQuit}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.quitLinkText}>
+              Discard session & quit without saving
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   );
@@ -116,5 +128,18 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
     fontSize: 15,
+  },
+
+  quitLink: {
+    marginTop: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+
+  quitLinkText: {
+    color: "#DC2626",
+    fontSize: 13,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 });

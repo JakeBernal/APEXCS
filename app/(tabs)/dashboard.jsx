@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 
 import { useAuth } from "../../context/AuthContext";
+import { supabase } from "../../lib/supabase";
 import { getDashboardSummary } from "../../lib/attempts";
 
 const { width } = Dimensions.get("window");
@@ -184,10 +185,20 @@ export default function Dashboard() {
     }, [selectedLevel])
   );
 
-  // Route guard.
+  // Route guard: double check Supabase storage to prevent false bounce during OAuth redirects
   useEffect(() => {
     if (!loading && !session) {
-      router.replace("/login");
+      const verifySession = async () => {
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (!data?.session) {
+            router.replace("/login");
+          }
+        } catch {
+          router.replace("/login");
+        }
+      };
+      verifySession();
     }
   }, [loading, session]);
 
@@ -633,7 +644,12 @@ export default function Dashboard() {
 
           {/* SIDE MENU */}
 
-          <View style={styles.sideMenu}>
+          <LinearGradient
+            colors={["#0E1E4A", "#152E6E", "#1E449A"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.85, y: 1 }}
+            style={styles.sideMenu}
+          >
             {/* MENU HEADER */}
 
             <View style={styles.menuHeader}>
@@ -667,7 +683,7 @@ export default function Dashboard() {
                 <Ionicons
                   name="close"
                   size={22}
-                  color={COLORS.text}
+                  color="#FFFFFF"
                 />
               </TouchableOpacity>
             </View>
@@ -700,7 +716,7 @@ export default function Dashboard() {
                 <Ionicons
                   name="home"
                   size={21}
-                  color={COLORS.primary}
+                  color="#FFFFFF"
                 />
               </View>
 
@@ -726,7 +742,7 @@ export default function Dashboard() {
                 <Ionicons
                   name="time-outline"
                   size={21}
-                  color={COLORS.muted}
+                  color="#B8CEFF"
                 />
               </View>
 
@@ -747,7 +763,7 @@ export default function Dashboard() {
                 <Ionicons
                   name="person-outline"
                   size={21}
-                  color={COLORS.muted}
+                  color="#B8CEFF"
                 />
               </View>
 
@@ -774,7 +790,7 @@ export default function Dashboard() {
                 <Ionicons
                   name="settings-outline"
                   size={21}
-                  color={COLORS.muted}
+                  color="#B8CEFF"
                 />
               </View>
 
@@ -785,7 +801,7 @@ export default function Dashboard() {
               <Ionicons
                 name="chevron-forward"
                 size={18}
-                color="#B8C1D1"
+                color="rgba(255, 255, 255, 0.55)"
               />
             </TouchableOpacity>
 
@@ -806,7 +822,7 @@ export default function Dashboard() {
                 <Ionicons
                   name="information-circle-outline"
                   size={21}
-                  color={COLORS.muted}
+                  color="#B8CEFF"
                 />
               </View>
 
@@ -827,7 +843,7 @@ export default function Dashboard() {
                 <Ionicons
                   name="log-out-outline"
                   size={21}
-                  color="#E35D6A"
+                  color="#FFA0A0"
                 />
               </View>
 
@@ -839,7 +855,7 @@ export default function Dashboard() {
             <Text style={styles.versionText}>
               APEX-CS
             </Text>
-          </View>
+          </LinearGradient>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1150,21 +1166,22 @@ const styles = StyleSheet.create({
 
   /* ================= SIDE MENU ================= */
 
+  /* ================= SIDE MENU ================= */
+
   sideMenu: {
     width: width * 0.78,
-    backgroundColor: "#FFFFFF",
     paddingTop: 55,
     paddingHorizontal: 18,
 
     shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
+    shadowOpacity: 0.35,
+    shadowRadius: 25,
     shadowOffset: {
       width: -5,
       height: 0,
     },
 
-    elevation: 15,
+    elevation: 20,
   },
 
   /* ================= MENU HEADER ================= */
@@ -1179,7 +1196,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.28)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1192,13 +1211,13 @@ const styles = StyleSheet.create({
 
   menuWelcome: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: "#B8CFFF",
   },
 
   menuUserName: {
     fontSize: 16,
     fontWeight: "800",
-    color: COLORS.text,
+    color: "#FFFFFF",
     marginTop: 2,
   },
 
@@ -1206,7 +1225,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: "#F4F6FA",
+    backgroundColor: "rgba(255, 255, 255, 0.14)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1215,14 +1234,14 @@ const styles = StyleSheet.create({
 
   menuDivider: {
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: "rgba(255, 255, 255, 0.14)",
     marginVertical: 14,
   },
 
   menuSectionTitle: {
     fontSize: 11,
     fontWeight: "800",
-    color: COLORS.muted,
+    color: "#94B6FF",
     letterSpacing: 1,
     marginBottom: 8,
     marginTop: 4,
@@ -1235,38 +1254,40 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     minHeight: 52,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     borderRadius: 14,
     marginBottom: 4,
   },
 
   menuItemActive: {
-    backgroundColor: "#EEF3FF",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.24)",
   },
 
   menuItemIcon: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "#F5F7FA",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
 
   menuItemIconActive: {
-    backgroundColor: "#DDE7FF",
+    backgroundColor: "#386BF6",
   },
 
   menuItemText: {
     flex: 1,
     fontSize: 14,
     fontWeight: "600",
-    color: COLORS.text,
+    color: "#E2E8F0",
   },
 
   menuItemTextActive: {
-    color: COLORS.primary,
+    color: "#FFFFFF",
     fontWeight: "800",
   },
 
@@ -1280,7 +1301,9 @@ const styles = StyleSheet.create({
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFF3F4",
+    backgroundColor: "rgba(239, 68, 68, 0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.32)",
     borderRadius: 14,
     paddingHorizontal: 10,
     minHeight: 52,
@@ -1291,7 +1314,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "#FFE2E5",
+    backgroundColor: "rgba(239, 68, 68, 0.24)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -1300,13 +1323,13 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#E35D6A",
+    color: "#FFA0A0",
   },
 
   versionText: {
     textAlign: "center",
     fontSize: 10,
-    color: "#B8C1D1",
+    color: "rgba(255, 255, 255, 0.45)",
     marginBottom: 18,
   },
 });
