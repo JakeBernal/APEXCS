@@ -13,6 +13,7 @@ import {
 } from "@expo/vector-icons";
 import ExamSession from "./ExamSession";
 import { router, useLocalSearchParams } from "expo-router";
+import { getCurriculum, EXAM_LEVELS } from "../lib/curriculum";
 
 export default function ExamType() {
   const { level } = useLocalSearchParams();
@@ -21,189 +22,39 @@ export default function ExamType() {
   const [selectedMode, setSelectedMode] = useState("review");
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
+  const [selectedChapter, setSelectedChapter] = useState(null);
   const [activeSession, setActiveSession] = useState(false);
 
   const [selected, setSelected] = useState(
     level === "sub" ? "sub" : "professional"
   );
 
-  const COLORS = {
-    primary: "#386BF6",
-    secondary: "#1F46C7",
-    bg: "#F7F9FC",
-    card: "#FFFFFF",
-    text: "#14143A",
-    muted: "#8A94A6",
-  };
 
   /*
    * EXAM INFORMATION
    */
 
-  const exam =
-    selected === "professional"
-      ? {
-          title: "Professional\nLevel",
-          description:
-            "For positions requiring a college degree.\nGrants second-level government eligibility.",
-          items: "170",
-          duration: "3 hrs",
-          passing: "80%",
-          icon: "briefcase-outline",
-        }
-      : {
-          title: "Sub-Professional\nLevel",
-          description:
-            "For clerical and trades positions.\nGrants first-level government eligibility.",
-          items: "165",
-          duration: "2 hrs",
-          passing: "80%",
-          icon: "school-outline",
-        };
+  const examConfig = EXAM_LEVELS[selected] || EXAM_LEVELS.professional;
+  const exam = {
+    title:
+      selected === "professional"
+        ? "Professional\nLevel"
+        : "Sub-Professional\nLevel",
+    description: examConfig.description,
+    items: `${examConfig.totalItems}`,
+    duration: `${examConfig.durationHours} hrs`,
+    passing: `${examConfig.passingScore}%`,
+    icon:
+      selected === "professional"
+        ? "briefcase-outline"
+        : "school-outline",
+  };
 
   /*
-   * SUBJECTS
-   *
-   * Based on the Scope of Examination:
-   *
-   * PROFESSIONAL
-   * - General Information
-   * - Verbal Ability
-   * - Analytical Ability
-   * - Numerical Ability
-   *
-   * SUBPROFESSIONAL
-   * - General Information
-   * - Verbal Ability
-   * - Clerical Ability
-   * - Numerical Ability
+   * SUBJECTS (Loaded from centralized curriculum)
    */
 
-  const professionalSubjects = [
-    {
-      title: "General Information",
-      subtitle: "Philippine Constitution, Laws & Environment",
-      lessons: 4,
-      icon: "lightbulb-outline",
-      color: "#FFF6DA",
-      topics: [
-        "Philippine Constitution",
-        "Code of Conduct and Ethical Standards for Public Officials and Employees (R.A. 6713)",
-        "Peace and Human Rights Issues and Concepts",
-        "Environment Management and Protection",
-      ],
-    },
-
-    {
-      title: "Verbal Ability",
-      subtitle: "Word Meaning, Grammar & Reading",
-      lessons: 6,
-      icon: "text-box-outline",
-      color: "#E8F7FF",
-      topics: [
-        "Word meaning",
-        "Sentence completion",
-        "Error recognition",
-        "Sentence structure",
-        "Paragraph organization",
-        "Reading comprehension",
-      ],
-    },
-
-    {
-      title: "Analytical Ability",
-      subtitle: "Reasoning, Logic & Data Interpretation",
-      lessons: 4,
-      icon: "brain",
-      color: "#FFE9EF",
-      topics: [
-        "Word analogy",
-        "Symbolic logic/abstract reasoning",
-        "Identifying assumptions and drawing conclusions",
-        "Data interpretation",
-      ],
-    },
-
-    {
-      title: "Numerical Ability",
-      subtitle: "Basic Operations, Number Sequences & Problems",
-      lessons: 3,
-      icon: "calculator-variant-outline",
-      color: "#EEF2FF",
-      topics: [
-        "Basic operations",
-        "Number sequences",
-        "Word problems",
-      ],
-    },
-  ];
-
-  const subProfessionalSubjects = [
-    {
-      title: "General Information",
-      subtitle: "Philippine Constitution, Laws & Environment",
-      lessons: 4,
-      icon: "lightbulb-outline",
-      color: "#FFF6DA",
-      topics: [
-        "Philippine Constitution",
-        "Code of Conduct and Ethical Standards for Public Officials and Employees (R.A. 6713)",
-        "Peace and Human Rights Issues and Concepts",
-        "Environment Management and Protection",
-      ],
-    },
-
-    {
-      title: "Verbal Ability",
-      subtitle: "Word Meaning, Grammar & Reading",
-      lessons: 6,
-      icon: "text-box-outline",
-      color: "#E8F7FF",
-      topics: [
-        "Word meaning",
-        "Sentence completion",
-        "Error recognition",
-        "Sentence structure",
-        "Paragraph organization",
-        "Reading comprehension",
-      ],
-    },
-
-    {
-      title: "Clerical Ability",
-      subtitle: "Filing & Spelling",
-      lessons: 2,
-      icon: "file-document-outline",
-      color: "#F0E8FF",
-      topics: [
-        "Filing",
-        "Spelling",
-      ],
-    },
-
-    {
-      title: "Numerical Ability",
-      subtitle: "Basic Operations, Number Sequences & Problems",
-      lessons: 3,
-      icon: "calculator-variant-outline",
-      color: "#EEF2FF",
-      topics: [
-        "Basic operations",
-        "Number sequences",
-        "Word problems",
-      ],
-    },
-  ];
-
-  /*
-   * Only show the subjects belonging to the
-   * currently selected examination level.
-   */
-
-  const subjects =
-    selected === "professional"
-      ? professionalSubjects
-      : subProfessionalSubjects;
+  const subjects = getCurriculum(selected);
 
   /*
    * MODE DESCRIPTIONS
@@ -230,8 +81,9 @@ export default function ExamType() {
     );
   };
 
-  const openExamFor = (subject) => {
+  const openExamFor = (subject = null, chapter = null) => {
     setSelectedSubject(subject);
+    setSelectedChapter(chapter);
     setShowMode(true);
   };
 
@@ -242,11 +94,13 @@ export default function ExamType() {
   return activeSession ? (
     <ExamSession
       subject={selectedSubject}
+      chapter={selectedChapter}
       level={selected}
-      mode={selectedMode}
+      mode={selectedMode === "flashcards" ? "flashcard" : selectedMode}
       onExit={() => {
         setActiveSession(false);
         setSelectedSubject(null);
+        setSelectedChapter(null);
       }}
     />
   ) : (
@@ -438,7 +292,7 @@ export default function ExamType() {
                     <Text
                       style={styles.lessonText}
                     >
-                      {item.lessons} Lessons
+                      {item.chapters?.length || 0} Topics
                     </Text>
                   </View>
                 </View>
@@ -458,33 +312,63 @@ export default function ExamType() {
                 <View
                   style={styles.topicsWrapper}
                 >
-                  {item.topics.map(
-                    (topic, tIndex) => (
-                      <View
-                        key={tIndex}
-                        style={styles.topicRow}
+                  {item.chapters?.map((chapter, tIndex) => (
+                    <View
+                      key={chapter.id || tIndex}
+                      style={styles.topicRow}
+                    >
+                      <TouchableOpacity
+                        style={{ flex: 1 }}
+                        activeOpacity={0.7}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/chapterDetails",
+                            params: {
+                              category: item.title,
+                              chapter: chapter.title,
+                              level: selected,
+                            },
+                          })
+                        }
                       >
-                        <MaterialCommunityIcons
-                          name="checkbox-blank-circle-outline"
-                          size={14}
-                          color="#386BF6"
-                        />
+                        <View style={{ flexDirection: "row", alignItems: "center" }}>
+                          <MaterialCommunityIcons
+                            name="circle-medium"
+                            size={18}
+                            color="#386BF6"
+                          />
+                          <Text
+                            style={styles.topicText}
+                          >
+                            {chapter.title}
+                          </Text>
+                        </View>
+                        {chapter.description ? (
+                          <Text
+                            style={styles.chapterSubText}
+                            numberOfLines={1}
+                          >
+                            {chapter.description}
+                          </Text>
+                        ) : null}
+                      </TouchableOpacity>
 
-                        <Text
-                          style={styles.topicText}
-                        >
-                          {topic}
-                        </Text>
-                      </View>
-                    )
-                  )}
+                      <TouchableOpacity
+                        style={styles.chapterPracticeMiniBtn}
+                        onPress={() => openExamFor(item, chapter)}
+                      >
+                        <Text style={styles.chapterPracticeMiniText}>Practice</Text>
+                        <Ionicons name="arrow-forward" size={11} color="#386BF6" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
 
                   <TouchableOpacity
                     style={
                       styles.categoryExamBtn
                     }
                     onPress={() =>
-                      openExamFor(item)
+                      openExamFor(item, null)
                     }
                   >
                     <Text
@@ -492,13 +376,35 @@ export default function ExamType() {
                         styles.categoryExamText
                       }
                     >
-                      Take {item.title} Exam
+                      Practice Entire {item.title}
                     </Text>
 
                     <Ionicons
                       name="arrow-forward"
                       size={16}
                       color="#386BF6"
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.categoryDetailsBtn}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/categoryDetails",
+                        params: {
+                          category: item.title,
+                          level: selected,
+                        },
+                      })
+                    }
+                  >
+                    <Text style={styles.categoryDetailsBtnText}>
+                      View Chapters & Mastery
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={14}
+                      color="#7D8FB3"
                     />
                   </TouchableOpacity>
                 </View>
@@ -534,6 +440,7 @@ export default function ExamType() {
               onPress={() => {
                 setShowMode(false);
                 setSelectedSubject(null);
+                setSelectedChapter(null);
               }}
             >
               <Ionicons
@@ -544,10 +451,18 @@ export default function ExamType() {
             </TouchableOpacity>
 
             <Text style={styles.modeTitle}>
-              {selectedSubject
+              {selectedChapter
+                ? selectedChapter.title
+                : selectedSubject
                 ? selectedSubject.title
                 : "All Categories"}
             </Text>
+
+            {selectedChapter && selectedSubject && (
+              <Text style={styles.modeSubcategory}>
+                Part of {selectedSubject.title}
+              </Text>
+            )}
 
             {/* MODE TABS */}
 
@@ -595,10 +510,10 @@ export default function ExamType() {
             </Text>
 
             <Text style={styles.modeScope}>
-              {selectedSubject
-                ? `Covers: ${selectedSubject.topics.join(
-                    ", "
-                  )}`
+              {selectedChapter
+                ? `Practicing "${selectedChapter.title}". ${selectedChapter.description || ""}`
+                : selectedSubject
+                ? `Covers all ${selectedSubject.chapters?.length || 0} topics in ${selectedSubject.title}.`
                 : `Covers all ${subjects.length} categories — great for spotting your overall strengths and weaknesses.`}
             </Text>
 
@@ -615,7 +530,7 @@ export default function ExamType() {
                 {selectedMode ===
                 "flashcards"
                   ? "Start Flashcards"
-                  : "Start"}
+                  : "Start Exam"}
               </Text>
             </TouchableOpacity>
           </LinearGradient>
@@ -964,5 +879,52 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "700",
     fontSize: 16,
+  },
+
+  modeSubcategory: {
+    color: "#DCE6FF",
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: -14,
+    marginBottom: 16,
+  },
+
+  chapterSubText: {
+    fontSize: 11,
+    color: "#7D8FB3",
+    marginLeft: 18,
+    marginTop: 2,
+  },
+
+  chapterPracticeMiniBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+
+  chapterPracticeMiniText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#386BF6",
+  },
+
+  categoryDetailsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    gap: 4,
+    marginTop: 4,
+  },
+
+  categoryDetailsBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#7D8FB3",
   },
 });

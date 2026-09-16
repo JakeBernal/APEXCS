@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -24,26 +24,28 @@ function getMotivation(percent) {
 
 export default function ExamResultScreen({ results, onRetake, onHome }) {
   const {
-    mode,
-    correct,
-    wrong,
-    skipped,
-    total,
-    timeLeft,
-    subjectBreakdown, // [{ title, correct, wrong, total }]
-    hasTimer,
-  } = results;
+    correct = 0,
+    wrong = 0,
+    skipped = 0,
+    total = 0,
+    breakdown = {},
+    mode = "timed",
+  } = results || {};
 
-  const isFlashcards = mode === "flashcards";
+  const subjectBreakdown = results?.subjectBreakdown || (Array.isArray(breakdown) ? breakdown : []) || [];
+  const timeLeft = results?.timeLeft ?? 0;
+  const hasTimer = results?.hasTimer ?? false;
+
+  const isFlashcards = mode === "flashcard" || mode === "flashcards";
   const correctLabel = isFlashcards ? "Knew It" : "Correct";
   const wrongLabel = isFlashcards ? "Didn't Know" : "Wrong";
 
-  const percent = Math.round((correct / total) * 100);
+  const percent = total > 0 ? Math.round((correct / total) * 100) : 0;
 
   // Entrance animation — fade + slide up, matching the flip-card's
   // motion quality rather than just popping content in instantly.
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(16)).current;
+  const [fadeAnim] = useState(() => new Animated.Value(0));
+  const [slideAnim] = useState(() => new Animated.Value(16));
 
   // Count-up animation for the big percentage, 0 -> actual score.
   const [displayPercent, setDisplayPercent] = useState(0);
@@ -171,6 +173,31 @@ export default function ExamResultScreen({ results, onRetake, onHome }) {
                   {wrongLabel}: {s.wrong}
                 </Text>
               </View>
+
+              {Array.isArray(s.chapters) && s.chapters.length > 0 && (
+                <View style={styles.chaptersBreakdownBox}>
+                  <Text style={styles.chaptersBreakdownHeading}>Chapters</Text>
+                  {s.chapters.map((ch, chIdx) => {
+                    const chPercent =
+                      ch.total > 0
+                        ? Math.round((ch.correct / ch.total) * 100)
+                        : 0;
+                    return (
+                      <View key={chIdx} style={styles.chapterBreakdownRow}>
+                        <Text
+                          style={styles.chapterBreakdownTitle}
+                          numberOfLines={1}
+                        >
+                          {ch.title}
+                        </Text>
+                        <Text style={styles.chapterBreakdownScore}>
+                          {ch.correct}/{ch.total} ({chPercent}%)
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           );
         })}
@@ -328,6 +355,43 @@ const styles = StyleSheet.create({
   subjectFooterText: {
     fontSize: 12,
     color: "#7D8FB3",
+  },
+
+  chaptersBreakdownBox: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+  },
+
+  chaptersBreakdownHeading: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#8A94A6",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+
+  chapterBreakdownRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+
+  chapterBreakdownTitle: {
+    flex: 1,
+    fontSize: 12,
+    color: "#334155",
+    fontWeight: "500",
+    marginRight: 8,
+  },
+
+  chapterBreakdownScore: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0F172A",
   },
 
   footer: {

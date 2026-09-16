@@ -63,7 +63,7 @@ export default function Stats() {
     getAttemptHistory()
       .then((data) => {
         const examAttempts = (data || [])
-          .filter((attempt) => attempt.mode !== "flashcards")
+          .filter((attempt) => attempt.mode === "timed")
           .sort((a, b) => {
             const dateA = new Date(
               a.created_at || a.completed_at || 0
@@ -251,19 +251,26 @@ export default function Stats() {
       : 0;
 
   // --------------------------------------------------
-  // GROWTH
+  // OVERALL GROWTH (Approach A: Baseline to Latest)
   // --------------------------------------------------
 
-  const mostRecentAttempt = filtered[0];
+  /*
+   * Measures cumulative improvement across all taken timed exams
+   * in the active filter.
+   *
+   * filtered is sorted newest -> oldest:
+   * - filtered[0] is the most recent attempt
+   * - filtered[filtered.length - 1] is the initial baseline attempt
+   */
 
-  const previousAttempt = mostRecentAttempt
-    ? findPreviousInGroup(filtered, 0)
-    : null;
+  const mostRecentAttempt = filtered[0];
+  const initialAttempt =
+    filtered.length > 1 ? filtered[filtered.length - 1] : null;
 
   const growth =
-    mostRecentAttempt && previousAttempt
+    mostRecentAttempt && initialAttempt
       ? (mostRecentAttempt.score ?? 0) -
-        (previousAttempt.score ?? 0)
+        (initialAttempt.score ?? 0)
       : null;
 
   // --------------------------------------------------
@@ -348,7 +355,7 @@ export default function Stats() {
                 {growth === null
                   ? "—"
                   : `${
-                      growth >= 0 ? "+" : ""
+                      growth > 0 ? "+" : ""
                     }${growth}%`}
               </Text>
 
@@ -788,7 +795,7 @@ export default function Stats() {
                         {vsPrev === null
                           ? "—"
                           : `${
-                              vsPrev >= 0
+                              vsPrev > 0
                                 ? "+"
                                 : ""
                             }${vsPrev}%`}

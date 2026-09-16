@@ -1,94 +1,37 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-import ExamQuestionScreen from "./ExamQuestionScreen";
-import ExamResultScreen from "./ExamResultScreen";
-import SubmitExamModal from "./SubmitExamModal";
-import QuitExamModal from "./QuitExamModal";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { buildQuestionSet } from "../lib/examData";
 import { saveAttempt } from "../lib/attempts";
+import ExamQuestionScreen from "./ExamQuestionScreen";
+import ExamResultScreen from "./ExamResultScreen";
+import QuitExamModal from "./QuitExamModal";
+import SubmitExamModal from "./SubmitExamModal";
 import { stopSpeaking } from "../lib/speechHelper";
-import { ExamQuestionSkeleton } from "./components/ExamQuestionSkeleton";
 
-
+// 2026 CSE Standard Exam Durations (in seconds)
+// Professional: 3 hours = 10,800s
+// Sub-Professional: 2 hours = 7,200s
+// Chapter / Practice tests: 30 minutes = 1,800s (or scaled)
 const TIMED_DURATION = {
-  // professional: 3 * 60 * 60,
   professional: 3 * 60 * 60,
   sub: 2 * 60 * 60,
+  chapter: 30 * 60,
 };
 
-function TimeUpScreen({ onSeeResults }) {
-  return (
-    <View style={timeUpStyles.container}>
-      <LinearGradient
-        colors={["#4D79FF", "#2346B8"]}
-        style={timeUpStyles.iconCircle}
-      >
-        <Ionicons name="time-outline" size={44} color="#fff" />
-      </LinearGradient>
+export default function ExamSession({ subject, chapter = null, level, mode, onExit }) {
+  // subject: { title, ... } | string | null
+  // chapter: { title, ... } | string | null
+  const subjectTitle =
+    subject && typeof subject === "object" ? subject.title : subject || null;
+  const chapterTitle =
+    chapter && typeof chapter === "object" ? chapter.title : chapter || null;
 
-      <Text style={timeUpStyles.title}>Time's Up!</Text>
-      <Text style={timeUpStyles.subtitle}>
-        Your time has ended. Let's see how you did.
-      </Text>
-
-      <TouchableOpacity style={timeUpStyles.button} onPress={onSeeResults}>
-        <Text style={timeUpStyles.buttonText}>View Results</Text>
-        <Ionicons name="arrow-forward" size={18} color="#fff" />
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-const timeUpStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F7F9FC",
-    paddingHorizontal: 32,
-  },
-  iconCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: "#14143A",
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: "#7D8FB3",
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 32,
-  },
-  button: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#386BF6",
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 14,
-    gap: 8,
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 15,
-  },
-});
-
-export default function ExamSession({ subject, level, mode, onExit }) {
-  // subject: { title, topics } | null (null = "All Categories")
   const [questions, setQuestions] = useState([]);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -96,10 +39,7 @@ export default function ExamSession({ subject, level, mode, onExit }) {
   useEffect(() => {
     let cancelled = false;
 
-    setLoadingQuestions(true);
-    setLoadError(null);
-
-    buildQuestionSet(subject?.title ?? null, level)
+    buildQuestionSet(subjectTitle, level, chapterTitle)
       .then((data) => {
         if (cancelled) return;
         setQuestions(data);
@@ -108,101 +48,140 @@ export default function ExamSession({ subject, level, mode, onExit }) {
       .catch((err) => {
         if (cancelled) return;
         console.error("Failed to load questions:", err);
-        setLoadError("Couldn't load questions. Please check your connection and try again.");
+        setLoadError(
+          "Couldn't load questions. Please check your connection and try again."
+        );
         setLoadingQuestions(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [subject, level]);
+  }, [subjectTitle, chapterTitle, level]);
 
   const [screen, setScreen] = useState("question"); // "question" | "result"
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({}); // { [questionId]: choiceIndex }
-  const [timeLeft, setTimeLeft] = useState(TIMED_DURATION[level] ?? TIMED_DURATION.professional);
+
+  // Determine timer duration based on scope
+  const initialDuration = chapterTitle
+    ? TIMED_DURATION.chapter
+    : TIMED_DURATION[level] ?? TIMED_DURATION.professional;
+
+  const [timeLeft, setTimeLeft] = useState(initialDuration);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showQuitModal, setShowQuitModal] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
 
-  const subjectLabel = subject ? subject.title : "All Categories";
-  const levelLabel = level === "professional" ? "Professional" : "Sub-Professional";
+  // Composed labels for header
+  const subjectLabel =
+    chapterTitle && subjectTitle
+      ? `${subjectTitle} › ${chapterTitle}`
+      : subjectTitle || "Full Examination";
+
+  const levelLabel =
+    level === "professional" ? "Professional" : "Sub-Professional";
 
   const resetSession = () => {
     stopSpeaking();
     setScreen("question");
     setCurrentIndex(0);
     setAnswers({});
-    setTimeLeft(TIMED_DURATION[level] ?? TIMED_DURATION.professional);
+    setTimeLeft(initialDuration);
     setTimeUp(false);
     setShowQuitModal(false);
     setShowSubmitModal(false);
   };
 
- const finalizeExam = (answersOverride = answers) => {
-  let correct = 0;
-  let wrong = 0;
-  let skipped = 0;
+  const finalizeExam = (answersOverride = answers) => {
+    let correct = 0;
+    let wrong = 0;
+    let skipped = 0;
 
-  const bySubject = {};
+    const bySubject = {};
 
-  questions.forEach((q) => {
-    if (!bySubject[q.subjectTitle]) {
-      bySubject[q.subjectTitle] = {
-        title: q.subjectTitle,
-        correct: 0,
-        wrong: 0,
-        total: 0,
-      };
-    }
+    questions.forEach((q) => {
+      const sTitle = q.subjectTitle || "General Information";
+      const cTitle = q.chapter || "General";
 
-    bySubject[q.subjectTitle].total += 1;
-
-    const given = answersOverride[q.id];
-
-    // No answer
-    if (given === undefined) {
-      skipped += 1;
-      return;
-    }
-
-    // FLASHCARDS
-    if (mode === "flashcards") {
-      if (given === "correct") {
-        correct += 1;
-        bySubject[q.subjectTitle].correct += 1;
-      } else if (given === "wrong") {
-        wrong += 1;
-        bySubject[q.subjectTitle].wrong += 1;
+      if (!bySubject[sTitle]) {
+        bySubject[sTitle] = {
+          title: sTitle,
+          correct: 0,
+          wrong: 0,
+          total: 0,
+          chaptersMap: {},
+        };
       }
 
-      return;
-    }
+      if (!bySubject[sTitle].chaptersMap[cTitle]) {
+        bySubject[sTitle].chaptersMap[cTitle] = {
+          title: cTitle,
+          correct: 0,
+          wrong: 0,
+          total: 0,
+        };
+      }
 
-    // MULTIPLE CHOICE / EXAM
-    if (given === q.correctIndex) {
-      correct += 1;
-      bySubject[q.subjectTitle].correct += 1;
-    } else {
-      wrong += 1;
-      bySubject[q.subjectTitle].wrong += 1;
-    }
-  });
+      bySubject[sTitle].total += 1;
+      bySubject[sTitle].chaptersMap[cTitle].total += 1;
 
-  setShowSubmitModal(false);
-  setScreen("result");
+      const given = answersOverride[q.id];
 
-  return {
-    mode, // IMPORTANT
-    correct,
-    wrong,
-    skipped,
-    total: questions.length,
-    timeLeft,
-    hasTimer: mode === "timed",
-    subjectBreakdown: Object.values(bySubject),
+      // No answer
+      if (given === undefined) {
+        skipped += 1;
+        return;
+      }
+
+      // FLASHCARDS
+      if (mode === "flashcards") {
+        if (given === "correct") {
+          correct += 1;
+          bySubject[sTitle].correct += 1;
+          bySubject[sTitle].chaptersMap[cTitle].correct += 1;
+        } else if (given === "wrong") {
+          wrong += 1;
+          bySubject[sTitle].wrong += 1;
+          bySubject[sTitle].chaptersMap[cTitle].wrong += 1;
+        }
+        return;
+      }
+
+      // MULTIPLE CHOICE / EXAM
+      if (given === q.correctIndex) {
+        correct += 1;
+        bySubject[sTitle].correct += 1;
+        bySubject[sTitle].chaptersMap[cTitle].correct += 1;
+      } else {
+        wrong += 1;
+        bySubject[sTitle].wrong += 1;
+        bySubject[sTitle].chaptersMap[cTitle].wrong += 1;
+      }
+    });
+
+    const subjectBreakdown = Object.values(bySubject).map((s) => ({
+      title: s.title,
+      correct: s.correct,
+      wrong: s.wrong,
+      total: s.total,
+      chapters: Object.values(s.chaptersMap),
+    }));
+
+    setShowSubmitModal(false);
+    setScreen("result");
+
+    return {
+      mode,
+      correct,
+      wrong,
+      skipped,
+      total: questions.length,
+      timeLeft,
+      hasTimer: mode === "timed",
+      subjectBreakdown,
+    };
   };
-};
 
   const [results, setResults] = useState(null);
 
@@ -211,17 +190,16 @@ export default function ExamSession({ subject, level, mode, onExit }) {
     const r = finalizeExam();
     setResults(r);
 
-    // Flashcards aren't graded, so there's nothing meaningful to save.
+    // Flashcards aren't graded, so nothing to save
     if (mode === "flashcards") return;
 
     const durationSeconds =
-      mode === "timed"
-        ? (TIMED_DURATION[level] ?? TIMED_DURATION.professional) - timeLeft
-        : null;
+      mode === "timed" ? initialDuration - timeLeft : null;
 
     try {
       await saveAttempt({
-        subjectTitle: subject?.title ?? null,
+        subjectTitle,
+        chapterTitle,
         level,
         mode,
         results: r,
@@ -230,8 +208,6 @@ export default function ExamSession({ subject, level, mode, onExit }) {
         durationSeconds,
       });
     } catch (err) {
-      // Non-fatal — the user still sees their results on screen either way,
-      // it just won't show up in History/Dashboard if this failed.
       console.error("Could not save exam attempt:", err);
     }
   };
@@ -249,106 +225,187 @@ export default function ExamSession({ subject, level, mode, onExit }) {
     setShowQuitModal(true);
   };
 
-  const handleConfirmQuit = () => {
+  const handleQuitConfirm = () => {
     stopSpeaking();
     setShowQuitModal(false);
-    setShowSubmitModal(false);
     onExit();
   };
 
   if (loadingQuestions) {
-    return <ExamQuestionSkeleton />;
-  }
-
-  if (loadError) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: "#F7F9FC" }}>
-        <Ionicons name="cloud-offline-outline" size={54} color="#EF4444" style={{ marginBottom: 16 }} />
-        <Text style={{ textAlign: "center", color: "#14143A", fontSize: 18, fontWeight: "800", marginBottom: 8 }}>
-          Unable to Load Questions
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#386BF6" />
+        <Text style={styles.loadingText}>
+          {chapterTitle
+            ? `Loading ${chapterTitle} questions...`
+            : subjectTitle
+            ? `Loading ${subjectTitle} questions...`
+            : `Loading ${levelLabel} examination...`}
         </Text>
-        <Text style={{ textAlign: "center", color: "#7D8FB3", fontSize: 14, lineHeight: 20, marginBottom: 24, maxWidth: 280 }}>
-          {loadError}
-        </Text>
-        <TouchableOpacity
-          style={{ backgroundColor: "#386BF6", paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12 }}
-          onPress={onExit}
-        >
-          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Go Back</Text>
-        </TouchableOpacity>
       </View>
     );
   }
 
-  if (questions.length === 0) {
-    const levelName = level === "sub" ? "Sub-Professional" : "Professional";
-    const categoryName = subject?.title ? ` for ${subject.title}` : "";
+  if (loadError || questions.length === 0) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, backgroundColor: "#F7F9FC" }}>
-        <Ionicons name="document-text-outline" size={54} color="#BAC7D5" style={{ marginBottom: 16 }} />
-        <Text style={{ textAlign: "center", color: "#14143A", fontSize: 18, fontWeight: "800", marginBottom: 8 }}>
-          No Questions Available
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorTitle}>
+          {loadError ? "Connection Error" : "No Questions Available"}
         </Text>
-        <Text style={{ textAlign: "center", color: "#7D8FB3", fontSize: 14, lineHeight: 20, marginBottom: 24, maxWidth: 280 }}>
-          {`No published questions found${categoryName} (${levelName}) yet.`}
+        <Text style={styles.errorSubtitle}>
+          {loadError ||
+            `No questions found for ${chapterTitle || subjectTitle || levelLabel}. Check back soon as more questions are added.`}
         </Text>
-        <TouchableOpacity
-          style={{ backgroundColor: "#386BF6", paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12 }}
-          onPress={onExit}
-        >
-          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Go Back</Text>
+        <TouchableOpacity style={styles.exitBtn} onPress={onExit}>
+          <Text style={styles.exitBtnText}>Return to Reviewer</Text>
         </TouchableOpacity>
       </View>
     );
-  }
-
-  if (screen === "result" && results) {
-    return (
-      <ExamResultScreen
-        results={results}
-        onRetake={resetSession}
-        onHome={() => {
-          stopSpeaking();
-          onExit();
-        }}
-      />
-    );
-  }
-
-  if (timeUp) {
-    return <TimeUpScreen onSeeResults={handleSeeResultsAfterTimeUp} />;
   }
 
   return (
     <View style={{ flex: 1 }}>
-      <ExamQuestionScreen
-        mode={mode}
-        subjectLabel={subjectLabel}
-        levelLabel={levelLabel}
-        questions={questions}
-        currentIndex={currentIndex}
-        setCurrentIndex={setCurrentIndex}
-        answers={answers}
-        setAnswers={setAnswers}
-        timeLeft={timeLeft}
-        setTimeLeft={setTimeLeft}
-        onBack={handleBackFromQuestion}
-        onRequestSubmit={() => setShowSubmitModal(true)}
-        onTimeUp={handleTimeUp}
+      {screen === "question" && (
+        <ExamQuestionScreen
+          mode={mode}
+          subjectLabel={subjectLabel}
+          levelLabel={levelLabel}
+          questions={questions}
+          currentIndex={currentIndex}
+          setCurrentIndex={setCurrentIndex}
+          answers={answers}
+          setAnswers={setAnswers}
+          timeLeft={timeLeft}
+          setTimeLeft={setTimeLeft}
+          onBack={handleBackFromQuestion}
+          onRequestSubmit={() => setShowSubmitModal(true)}
+          onTimeUp={handleTimeUp}
+        />
+      )}
+
+      {screen === "result" && results && (
+        <ExamResultScreen
+          results={results}
+          onRetake={resetSession}
+          onHome={() => {
+            stopSpeaking();
+            onExit();
+          }}
+        />
+      )}
+
+      <QuitExamModal
+        visible={showQuitModal}
+        onCancel={() => setShowQuitModal(false)}
+        onQuit={handleQuitConfirm}
       />
 
       <SubmitExamModal
         visible={showSubmitModal}
+        totalQuestions={questions.length}
+        answeredCount={Object.keys(answers).length}
         onCancel={() => setShowSubmitModal(false)}
         onSubmit={handleSubmit}
-        onQuit={handleConfirmQuit}
       />
 
-      <QuitExamModal
-        visible={showQuitModal}
-        onContinue={() => setShowQuitModal(false)}
-        onQuit={handleConfirmQuit}
-      />
+      {timeUp && (
+        <View style={styles.timeUpOverlay}>
+          <View style={styles.timeUpCard}>
+            <Text style={styles.timeUpTitle}>Time is Up!</Text>
+            <Text style={styles.timeUpSubtitle}>
+              Your exam time has expired. Let&apos;s see how you did.
+            </Text>
+            <TouchableOpacity
+              style={styles.timeUpBtn}
+              onPress={handleSeeResultsAfterTimeUp}
+            >
+              <Text style={styles.timeUpBtnText}>See Results</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  centerContainer: {
+    flex: 1,
+    backgroundColor: "#F7F9FC",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  loadingText: {
+    marginTop: 16,
+    color: "#7D8FB3",
+    fontSize: 15,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#14143A",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: "#7D8FB3",
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  exitBtn: {
+    backgroundColor: "#386BF6",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  exitBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  timeUpOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  timeUpCard: {
+    backgroundColor: "#fff",
+    borderRadius: 22,
+    padding: 28,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 340,
+    elevation: 8,
+  },
+  timeUpTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#14143A",
+    marginBottom: 8,
+  },
+  timeUpSubtitle: {
+    fontSize: 14,
+    color: "#7D8FB3",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  timeUpBtn: {
+    backgroundColor: "#386BF6",
+    width: "100%",
+    paddingVertical: 14,
+    borderRadius: 24,
+    alignItems: "center",
+  },
+  timeUpBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+});
