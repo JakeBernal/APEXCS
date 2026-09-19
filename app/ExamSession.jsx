@@ -17,11 +17,12 @@ import { stopSpeaking } from "../lib/speechHelper";
 // 2026 CSE Standard Exam Durations (in seconds)
 // Professional: 3 hours = 10,800s
 // Sub-Professional: 2 hours = 7,200s
-// Chapter / Practice tests: 30 minutes = 1,800s (or scaled)
+// Category / Sub-Category (Chapter) Practice tests (Max 50 items): 45 minutes = 2,700s
 const TIMED_DURATION = {
   professional: 3 * 60 * 60,
   sub: 2 * 60 * 60,
-  chapter: 30 * 60,
+  practice: 45 * 60,
+  chapter: 45 * 60,
 };
 
 export default function ExamSession({ subject, chapter = null, level, mode, onExit }) {
@@ -64,8 +65,9 @@ export default function ExamSession({ subject, chapter = null, level, mode, onEx
   const [answers, setAnswers] = useState({}); // { [questionId]: choiceIndex }
 
   // Determine timer duration based on scope
-  const initialDuration = chapterTitle
-    ? TIMED_DURATION.chapter
+  const isPracticeExam = Boolean(chapterTitle || subjectTitle);
+  const initialDuration = isPracticeExam
+    ? TIMED_DURATION.practice
     : TIMED_DURATION[level] ?? TIMED_DURATION.professional;
 
   const [timeLeft, setTimeLeft] = useState(initialDuration);
