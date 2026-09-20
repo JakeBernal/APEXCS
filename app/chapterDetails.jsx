@@ -341,7 +341,7 @@ export default function ChapterDetails() {
                 </View>
               </View>
               <Text style={styles.modeDesc}>
-                Practice under exam conditions with a countdown timer.
+                Practice under exam conditions with a 40-minute countdown timer (max 30 items).
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />

@@ -511,10 +511,10 @@ export default function ExamType() {
 
             <Text style={styles.modeScope}>
               {selectedChapter
-                ? `Practicing "${selectedChapter.title}". ${selectedChapter.description || ""}`
+                ? `Practicing "${selectedChapter.title}" · Max 30 items · 40 mins`
                 : selectedSubject
-                ? `Covers all ${selectedSubject.chapters?.length || 0} topics in ${selectedSubject.title}.`
-                : `Covers all ${subjects.length} categories — great for spotting your overall strengths and weaknesses.`}
+                ? `Practicing all ${selectedSubject.chapters?.length || 0} topics in ${selectedSubject.title} · Max 50 items · 1 hr`
+                : `Full Mock Exam covering all ${subjects.length} categories · ${selected === "professional" ? "170 items · 3 hrs" : "165 items · 2 hrs"}`}
             </Text>
 
             <TouchableOpacity

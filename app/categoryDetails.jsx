@@ -400,8 +400,8 @@ export default function CategoryDetails() {
 
             <Text style={styles.modalSubtitle}>
               {selectedPracticeChapter
-                ? `Practicing: ${selectedPracticeChapter.title}`
-                : `Practicing: All ${categoryConfig.title}`}
+                ? `Practicing: ${selectedPracticeChapter.title} (Max 30 items · 40 mins)`
+                : `Practicing: All ${categoryConfig.title} (Max 50 items · 1 hr)`}
             </Text>
 
             {/* MODE OPTIONS */}
@@ -433,7 +433,9 @@ export default function CategoryDetails() {
 
             <Text style={styles.modeDesc}>
               {selectedMode === "timed"
-                ? "Timed session simulating exam conditions with a countdown clock."
+                ? selectedPracticeChapter
+                  ? "Timed 40-minute practice session (max 30 items) simulating exam conditions."
+                  : "Timed 1-hour practice session (max 50 items) simulating exam conditions."
                 : selectedMode === "review"
                 ? "Self-paced study mode with instant answers and explanations."
                 : "Quick-flip flashcard review to memorize key concepts rapidly."}
