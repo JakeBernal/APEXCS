@@ -269,9 +269,15 @@ export default function Dashboard() {
               );
             } catch (err) {
               console.error("Failed to reset progress:", err);
+              const isPermissionError =
+                err?.code === "42501" ||
+                err?.message?.toLowerCase().includes("permission denied");
+
               Alert.alert(
                 "Reset Failed",
-                "Could not reset progress. Please check your connection and try again."
+                isPermissionError
+                  ? "Supabase permission denied: Please run the DELETE grant policy in your Supabase SQL Editor."
+                  : "Could not reset progress. Please check your connection and try again."
               );
             } finally {
               setResettingProgress(false);
