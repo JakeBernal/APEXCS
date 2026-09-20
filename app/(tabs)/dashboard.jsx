@@ -16,13 +16,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import { getDashboardSummary } from "../../lib/attempts";
-import { getCurriculum } from "../../lib/curriculum";
 
 const { width } = Dimensions.get("window");
 
@@ -56,6 +55,37 @@ const cards = [
 
 const EXAM_DATE = "2026-05-18T08:00:00";
 
+/*
+ * Subjects are different between the two Civil Service
+ * exam levels.
+ *
+ * Professional:
+ * - General Information
+ * - Verbal Ability
+ * - Numerical Ability
+ * - Analytical Ability
+ *
+ * Sub-Professional:
+ * - General Information
+ * - Verbal Ability
+ * - Numerical Ability
+ * - Clerical Ability
+ */
+const SUBJECTS_BY_LEVEL = {
+  professional: [
+    "General Information",
+    "Verbal Ability",
+    "Numerical Ability",
+    "Analytical Ability",
+  ],
+
+  sub: [
+    "General Information",
+    "Verbal Ability",
+    "Numerical Ability",
+    "Clerical Ability",
+  ],
+};
 
 function getCountdown(targetDate) {
   const now = new Date();
@@ -90,11 +120,10 @@ function getCountdown(targetDate) {
 
 // Maps readiness percentage to a color band.
 function getReadinessColor(percent) {
-  if (percent === null || percent === undefined) return "#94A3B8";
-  if (percent < 50) return "#EC6666";
-  if (percent < 70) return "#F0AE65";
-  if (percent < 80) return "#EAB308";
-  return "#22C55E";
+  if (percent < 25) return "#EC6666";
+  if (percent < 50) return "#F0AE65";
+  if (percent < 75) return "#D6DD55";
+  return "#67C36D";
 }
 
 export default function Dashboard() {
@@ -130,7 +159,7 @@ export default function Dashboard() {
    * Professional and Sub-Professional are kept completely
    * separate.
    */
-  const loadDashboard = React.useCallback(async () => {
+  const loadDashboard = async () => {
     try {
       const data = await getDashboardSummary(
         selectedLevel
@@ -143,7 +172,7 @@ export default function Dashboard() {
         error
       );
     }
-  }, [selectedLevel]);
+  };
 
   /*
    * Refetch whenever:
@@ -153,7 +182,7 @@ export default function Dashboard() {
   useFocusEffect(
     React.useCallback(() => {
       loadDashboard();
-    }, [loadDashboard])
+    }, [selectedLevel])
   );
 
   // Route guard: double check Supabase storage to prevent false bounce during OAuth redirects
@@ -234,38 +263,47 @@ export default function Dashboard() {
 
   /*
    * ============================================================
-   * SUBJECT READINESS & CATEGORY STATS
+   * SUBJECT READINESS
    * ============================================================
    *
-   * Pull official curriculum categories for the selected level.
-   * Merges with real attempt stats from getDashboardSummary.
-   * If a category hasn't been attempted yet, percent is null ("Not Started").
+   * We don't simply render whatever subjects happen to exist
+   * in the database.
+   *
+   * Instead, the Dashboard knows the official subjects for
+   * the currently selected exam level.
+   *
+   * This prevents:
+   *
+   * Professional:
+   * Analytical Ability
+   *
+   * from accidentally appearing for:
+   *
+   * Sub-Professional:
+   * Clerical Ability
+   *
+   * It also means subjects with no attempts yet still appear
+   * with 0%.
    */
 
-  const curriculumCats = getCurriculum(selectedLevel);
+  const selectedSubjects =
+    SUBJECTS_BY_LEVEL[selectedLevel] || [];
 
-  const dashboardCategories = curriculumCats.map((cat) => {
-    const ready = summary.subjectReadiness?.find(
-      (s) => s.title?.trim().toLowerCase() === cat.title.trim().toLowerCase()
-    );
+  const dashboardSubjects = selectedSubjects.map(
+    (subjectName) => {
+      const existingSubject =
+        summary.subjectReadiness?.find(
+          (subject) =>
+            subject.title?.trim().toLowerCase() ===
+            subjectName.trim().toLowerCase()
+        );
 
-    return (
-      ready || {
-        ...cat,
-        percent: null,
-        totalAttempted: 0,
-        totalCorrect: 0,
-        totalWrong: 0,
-        chapters: cat.chapters.map((ch) => ({
-          ...ch,
-          percent: null,
-          totalAttempted: 0,
-          totalCorrect: 0,
-          totalWrong: 0,
-        })),
-      }
-    );
-  });
+      return {
+        title: subjectName,
+        percent: existingSubject?.percent ?? 0,
+      };
+    }
+  );
 
   const renderCard = ({ item, index }) => {
     const isActive = index === currentIndex;
@@ -514,181 +552,72 @@ export default function Dashboard() {
         />
 
         {/* =====================================================
-            WEAK AREAS / FOCUS TOPICS
-            ===================================================== */}
-        {summary.weakAreas && summary.weakAreas.length > 0 && (
-          <View style={styles.focusSection}>
-            <View style={styles.sectionHeaderRow}>
-              <View>
-                <View style={styles.focusTitleRow}>
-                  <Ionicons
-                    name="alert-circle-outline"
-                    size={18}
-                    color="#EF4444"
-                  />
-                  <Text style={styles.sectionTitle}>Focus Areas</Text>
-                </View>
-                <Text style={styles.sectionSubtitle}>
-                  Topics below 70% mastery — targeted practice recommended
-                </Text>
-              </View>
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.focusScrollContent}
-            >
-              {summary.weakAreas.map((weak, idx) => (
-                <View key={idx} style={styles.focusCard}>
-                  <View style={styles.focusCardTop}>
-                    <Text style={styles.focusCatLabel} numberOfLines={1}>
-                      {weak.categoryTitle}
-                    </Text>
-                    <View style={styles.focusMasteryPill}>
-                      <Text style={styles.focusMasteryText}>
-                        {weak.percent}%
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.focusChapTitle} numberOfLines={2}>
-                    {weak.chapterTitle}
-                  </Text>
-
-                  <Text style={styles.focusAttemptText}>
-                    {weak.totalCorrect} / {weak.totalAttempted} correct
-                  </Text>
-
-                  <TouchableOpacity
-                    style={styles.focusPracticeBtn}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/chapterDetails",
-                        params: {
-                          category: weak.categoryTitle,
-                          chapter: weak.chapterTitle,
-                          level: selectedLevel,
-                        },
-                      })
-                    }
-                  >
-                    <Text style={styles.focusPracticeBtnText}>Practice</Text>
-                    <Ionicons name="arrow-forward" size={13} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* =====================================================
             SUBJECT READINESS
             ===================================================== */}
 
         <View style={styles.sectionHeaderRow}>
           <View>
-            <Text style={styles.sectionTitle}>Subject Readiness</Text>
+            <Text style={styles.sectionTitle}>
+              Subject Readiness
+            </Text>
+
             <Text style={styles.sectionSubtitle}>
-              {selectedLevelLabel} performance • Tap card to explore chapters
+              {selectedLevelLabel} performance
             </Text>
           </View>
         </View>
 
-        {dashboardCategories.map((cat) => {
-          const isStarted = cat.totalAttempted > 0 && cat.percent !== null;
-          const color = getReadinessColor(cat.percent);
+        {dashboardSubjects.length === 0 && (
+          <Text style={styles.emptyText}>
+            Take a mock exam to see your readiness
+            per subject.
+          </Text>
+        )}
+
+        {dashboardSubjects.map((subject) => {
+          const color = getReadinessColor(
+            subject.percent
+          );
 
           return (
-            <TouchableOpacity
-              key={cat.title}
-              style={styles.categoryCard}
-              activeOpacity={0.85}
-              onPress={() =>
-                router.push({
-                  pathname: "/categoryDetails",
-                  params: {
-                    category: cat.title,
-                    level: selectedLevel,
-                  },
-                })
-              }
+            <View
+              key={subject.title}
+              style={styles.performanceCard}
             >
-              {/* TOP ROW */}
-              <View style={styles.categoryHeader}>
-                <View
+              <View style={styles.performanceRow}>
+                <Text
+                  style={styles.performanceLabel}
+                >
+                  {subject.title}
+                </Text>
+
+                <Text
                   style={[
-                    styles.categoryIconBox,
-                    { backgroundColor: cat.color || "#EEF2FF" },
+                    styles.performanceValue,
+                    {
+                      color,
+                    },
                   ]}
                 >
-                  <MaterialCommunityIcons
-                    name={cat.icon || "book-open-page-variant"}
-                    size={22}
-                    color={cat.badgeColor || COLORS.primary}
-                  />
-                </View>
-
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.categoryTitle}>{cat.title}</Text>
-                  <View style={styles.categoryMetaRow}>
-                    <View style={styles.chapterCountBadge}>
-                      <Text style={styles.chapterCountText}>
-                        {cat.chapters?.length || 0} Chapters
-                      </Text>
-                    </View>
-                    {cat.estimatedWeightLabel && (
-                      <Text style={styles.weightLabelText}>
-                        {cat.estimatedWeightLabel}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-
-                <View style={styles.categoryMasteryBox}>
-                  {isStarted ? (
-                    <Text style={[styles.categoryMasteryNum, { color }]}>
-                      {cat.percent}%
-                    </Text>
-                  ) : (
-                    <View style={styles.notStartedBadge}>
-                      <Text style={styles.notStartedText}>Not Started</Text>
-                    </View>
-                  )}
-                </View>
+                  {subject.percent}%
+                </Text>
               </View>
 
-              {/* PROGRESS BAR */}
               <View style={styles.progressBarBg}>
                 <View
                   style={[
                     styles.progressBarFill,
                     {
-                      width: isStarted ? `${Math.min(cat.percent, 100)}%` : "0%",
+                      width: `${Math.min(
+                        subject.percent,
+                        100
+                      )}%`,
                       backgroundColor: color,
                     },
                   ]}
                 />
               </View>
-
-              {/* FOOTER */}
-              <View style={styles.categoryFooter}>
-                <Text style={styles.categoryAttemptText}>
-                  {isStarted
-                    ? `${cat.totalAttempted} questions attempted`
-                    : "0 questions attempted"}
-                </Text>
-
-                <View style={styles.viewChaptersBtn}>
-                  <Text style={styles.viewChaptersText}>View Chapters</Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={14}
-                    color={COLORS.primary}
-                  />
-                </View>
-              </View>
-            </TouchableOpacity>
+            </View>
           );
         })}
       </ScrollView>
@@ -1169,211 +1098,7 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 
-  /* ================= FOCUS AREAS / WEAK AREAS ================= */
-  focusSection: {
-    marginBottom: 6,
-  },
-
-  focusTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: SPACING.lg,
-    gap: 6,
-  },
-
-  focusScrollContent: {
-    paddingHorizontal: SPACING.lg,
-    gap: 12,
-    paddingVertical: 4,
-  },
-
-  focusCard: {
-    width: 210,
-    backgroundColor: "#FFFFFF",
-    borderRadius: RADIUS.sm,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#FEE2E2",
-    shadowColor: "#EF4444",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-    justifyContent: "space-between",
-  },
-
-  focusCardTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-
-  focusCatLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: COLORS.muted,
-    textTransform: "uppercase",
-    flex: 1,
-    marginRight: 6,
-  },
-
-  focusMasteryPill: {
-    backgroundColor: "#FEE2E2",
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-
-  focusMasteryText: {
-    color: "#EF4444",
-    fontSize: 11,
-    fontWeight: "800",
-  },
-
-  focusChapTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: COLORS.text,
-    lineHeight: 18,
-    minHeight: 36,
-  },
-
-  focusAttemptText: {
-    fontSize: 11,
-    color: COLORS.muted,
-    marginTop: 4,
-    marginBottom: 10,
-  },
-
-  focusPracticeBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EF4444",
-    paddingVertical: 7,
-    borderRadius: 8,
-    gap: 4,
-  },
-
-  focusPracticeBtnText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  /* ================= CATEGORY PERFORMANCE ================= */
-
-  categoryCard: {
-    backgroundColor: "#FFFFFF",
-    marginHorizontal: SPACING.lg,
-    marginBottom: 14,
-    borderRadius: RADIUS.md,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
-  },
-
-  categoryHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-
-  categoryIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  categoryTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-
-  categoryMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-
-  chapterCountBadge: {
-    backgroundColor: "#F1F5F9",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-
-  chapterCountText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: COLORS.muted,
-  },
-
-  weightLabelText: {
-    fontSize: 10,
-    color: COLORS.muted,
-    fontWeight: "500",
-  },
-
-  categoryMasteryBox: {
-    alignItems: "flex-end",
-    marginLeft: 8,
-  },
-
-  categoryMasteryNum: {
-    fontSize: 20,
-    fontWeight: "800",
-  },
-
-  notStartedBadge: {
-    backgroundColor: "#F1F5F9",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-
-  notStartedText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#94A3B8",
-  },
-
-  categoryFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#F8FAFC",
-  },
-
-  categoryAttemptText: {
-    fontSize: 11,
-    color: COLORS.muted,
-  },
-
-  viewChaptersBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-
-  viewChaptersText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
+  /* ================= PERFORMANCE ================= */
 
   performanceCard: {
     backgroundColor: "#fff",
