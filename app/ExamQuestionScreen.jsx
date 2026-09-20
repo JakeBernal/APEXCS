@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Animated,
   Modal,
+  ScrollView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
@@ -134,7 +135,12 @@ function QuestionNavigator({
           </View>
 
           {/* QUESTION GRID */}
-          <View style={styles.questionGrid}>
+          <ScrollView
+            style={styles.navigatorScroll}
+            contentContainerStyle={styles.questionGrid}
+            showsVerticalScrollIndicator={true}
+            keyboardShouldPersistTaps="handled"
+          >
             {questions.map((item, index) => {
               const isCurrent = index === currentIndex;
               const isWrong = answers[item.id] === "wrong";
@@ -186,7 +192,7 @@ function QuestionNavigator({
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </ScrollView>
 
           {/* LEGEND */}
           <View style={styles.navigatorLegend}>
@@ -1367,21 +1373,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(20,20,58,0.45)",
     justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
+    paddingVertical: 24,
   },
 
   navigatorContainer: {
     backgroundColor: "#fff",
     borderRadius: 22,
     padding: 20,
-    maxHeight: "80%",
+    maxHeight: "85%",
+    width: "100%",
+    maxWidth: 440,
+    overflow: "hidden",
   },
 
   navigatorHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 22,
+    marginBottom: 16,
   },
 
   navigatorTitle: {
@@ -1405,10 +1416,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+  navigatorScroll: {
+    flexShrink: 1,
+    marginVertical: 4,
+  },
+
   questionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-start",
+    paddingBottom: 8,
   },
 
   questionNumber: {
