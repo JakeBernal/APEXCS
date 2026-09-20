@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   Pressable,
+  ActivityIndicator,
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,7 +22,7 @@ import { router, useFocusEffect } from "expo-router";
 
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
-import { getDashboardSummary } from "../../lib/attempts";
+import { getDashboardSummary, resetUserProgress } from "../../lib/attempts";
 
 const { width } = Dimensions.get("window");
 
@@ -141,6 +142,8 @@ export default function Dashboard() {
   );
 
   const [menuVisible, setMenuVisible] = useState(false);
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [resettingProgress, setResettingProgress] = useState(false);
 
   const flatListRef = useRef();
 
@@ -237,6 +240,42 @@ export default function Dashboard() {
           onPress: async () => {
             await signOut();
             router.replace("/login");
+          },
+        },
+      ]
+    );
+  };
+
+  // Reset exam progress
+  const handleResetProgress = () => {
+    Alert.alert(
+      "Reset Exam Progress?",
+      "This will permanently delete all your exam attempts, test scores, and chapter mastery. This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset Everything",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setResettingProgress(true);
+              await resetUserProgress();
+              setMenuVisible(false);
+              setSettingsModalVisible(false);
+              await loadDashboard();
+              Alert.alert(
+                "Progress Reset",
+                "All your exam attempts and topic mastery have been reset to a clean slate."
+              );
+            } catch (err) {
+              console.error("Failed to reset progress:", err);
+              Alert.alert(
+                "Reset Failed",
+                "Could not reset progress. Please check your connection and try again."
+              );
+            } finally {
+              setResettingProgress(false);
+            }
           },
         },
       ]
@@ -735,7 +774,7 @@ export default function Dashboard() {
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() =>
-                handleMenuNavigation("/history")
+                handleMenuNavigation("/stats")
               }
             >
               <View style={styles.menuItemIcon}>
@@ -782,9 +821,10 @@ export default function Dashboard() {
 
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() =>
-                handleMenuNavigation("/settings")
-              }
+              onPress={() => {
+                setMenuVisible(false);
+                setSettingsModalVisible(true);
+              }}
             >
               <View style={styles.menuItemIcon}>
                 <Ionicons
@@ -803,6 +843,25 @@ export default function Dashboard() {
                 size={18}
                 color="rgba(255, 255, 255, 0.55)"
               />
+            </TouchableOpacity>
+
+            {/* RESET PROGRESS */}
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleResetProgress}
+            >
+              <View style={styles.menuItemIcon}>
+                <Ionicons
+                  name="refresh-circle-outline"
+                  size={21}
+                  color="#FCA5A5"
+                />
+              </View>
+
+              <Text style={[styles.menuItemText, { color: "#FCA5A5" }]}>
+                Reset Progress
+              </Text>
             </TouchableOpacity>
 
             {/* ABOUT */}
@@ -856,6 +915,115 @@ export default function Dashboard() {
               APEX-CS
             </Text>
           </LinearGradient>
+        </View>
+      </Modal>
+
+      {/* =====================================================
+          SETTINGS MODAL
+          ===================================================== */}
+
+      <Modal
+        visible={settingsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSettingsModalVisible(false)}
+      >
+        <View style={styles.settingsOverlay}>
+          <Pressable
+            style={styles.settingsBackdrop}
+            onPress={() => setSettingsModalVisible(false)}
+          />
+
+          <View style={styles.settingsCard}>
+            {/* MODAL HEADER */}
+            <View style={styles.settingsHeader}>
+              <View style={styles.settingsHeaderTitleRow}>
+                <View style={styles.settingsIconPill}>
+                  <Ionicons name="settings-sharp" size={18} color={COLORS.primary} />
+                </View>
+                <Text style={styles.settingsTitle}>Settings</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.settingsCloseBtn}
+                onPress={() => setSettingsModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={22} color={COLORS.muted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* TESTING & PROGRESS SECTION */}
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsSectionTitle}>
+                TESTING & MONITORING
+              </Text>
+
+              <View style={styles.settingsActionCard}>
+                <View style={styles.settingsActionTop}>
+                  <View style={styles.settingsResetIconBox}>
+                    <Ionicons name="refresh-outline" size={22} color="#EF4444" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.settingsActionTitle}>
+                      Reset Exam Progress
+                    </Text>
+                    <Text style={styles.settingsActionDesc}>
+                      Wipes all attempt history, scores, and topic mastery. Ideal for testing calculations and formula verification.
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.settingsResetBtn}
+                  activeOpacity={0.8}
+                  onPress={handleResetProgress}
+                  disabled={resettingProgress}
+                >
+                  {resettingProgress ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.settingsResetBtnText}>
+                        Reset All Progress
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* APPLICATION INFO */}
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsSectionTitle}>
+                APPLICATION
+              </Text>
+
+              <View style={styles.settingsInfoCard}>
+                <View style={styles.settingsInfoRow}>
+                  <Text style={styles.settingsInfoLabel}>Exam Standard</Text>
+                  <Text style={styles.settingsInfoValue}>2026 Civil Service</Text>
+                </View>
+
+                <View style={styles.settingsInfoDivider} />
+
+                <View style={styles.settingsInfoRow}>
+                  <Text style={styles.settingsInfoLabel}>Active Level</Text>
+                  <Text style={styles.settingsInfoValue}>{selectedLevelLabel}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* CLOSE / DONE BUTTON */}
+            <TouchableOpacity
+              style={styles.settingsDoneBtn}
+              activeOpacity={0.8}
+              onPress={() => setSettingsModalVisible(false)}
+            >
+              <Text style={styles.settingsDoneBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1331,5 +1499,181 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "rgba(255, 255, 255, 0.45)",
     marginBottom: 18,
+  },
+
+  /* ================= SETTINGS MODAL ================= */
+
+  settingsOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(10, 20, 45, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.lg,
+  },
+
+  settingsBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  settingsCard: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: "#FFFFFF",
+    borderRadius: RADIUS.md,
+    padding: 22,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+
+  settingsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+
+  settingsHeaderTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  settingsIconPill: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#EEF2FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  settingsTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.text,
+  },
+
+  settingsCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F1F5F9",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  settingsSection: {
+    marginBottom: 18,
+  },
+
+  settingsSectionTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: COLORS.muted,
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+
+  settingsActionCard: {
+    backgroundColor: "#FEF2F2",
+    borderRadius: RADIUS.sm,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
+  },
+
+  settingsActionTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+
+  settingsResetIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#FEE2E2",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  settingsActionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#991B1B",
+    marginBottom: 2,
+  },
+
+  settingsActionDesc: {
+    fontSize: 12,
+    color: "#7F1D1D",
+    lineHeight: 16,
+  },
+
+  settingsResetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EF4444",
+    minHeight: 44,
+    borderRadius: 10,
+    gap: 8,
+  },
+
+  settingsResetBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  settingsInfoCard: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
+  settingsInfoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+
+  settingsInfoDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+
+  settingsInfoLabel: {
+    fontSize: 13,
+    color: COLORS.muted,
+    fontWeight: "500",
+  },
+
+  settingsInfoValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+
+  settingsDoneBtn: {
+    backgroundColor: COLORS.primary,
+    minHeight: 46,
+    borderRadius: RADIUS.sm,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 4,
+  },
+
+  settingsDoneBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
