@@ -380,7 +380,7 @@ export default function ChapterDetails() {
           <TouchableOpacity
             style={styles.modeCard}
             activeOpacity={0.8}
-            onPress={() => handleStartPractice("flashcard")}
+            onPress={() => handleStartPractice("flashcards")}
           >
             <View style={[styles.modeIconBox, { backgroundColor: "#FEF3C7" }]}>
               <MaterialCommunityIcons

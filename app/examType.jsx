@@ -96,7 +96,7 @@ export default function ExamType() {
       subject={selectedSubject}
       chapter={selectedChapter}
       level={selected}
-      mode={selectedMode === "flashcards" ? "flashcard" : selectedMode}
+      mode={selectedMode}
       onExit={() => {
         setActiveSession(false);
         setSelectedSubject(null);

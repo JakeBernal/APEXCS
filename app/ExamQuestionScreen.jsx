@@ -282,9 +282,8 @@ export default function ExamQuestionScreen({
 }) {
   const [flipped, setFlipped] = useState(false);
 
-  const [showFlashcardIntro, setShowFlashcardIntro] = useState(
-    mode === "flashcards"
-  );
+  const isFlashcard = mode === "flashcards" || mode === "flashcard";
+  const [showFlashcardIntro, setShowFlashcardIntro] = useState(isFlashcard);
 
   /*
    * Tracks questions that the user deliberately skipped.
@@ -599,7 +598,7 @@ export default function ExamQuestionScreen({
      MAIN UI
   ========================================================= */
 
-  const isFlashcardMode = mode === "flashcards";
+  const isFlashcardMode = mode === "flashcards" || mode === "flashcard";
   const ContainerComp = isFlashcardMode ? LinearGradient : View;
   const containerProps = isFlashcardMode
     ? {

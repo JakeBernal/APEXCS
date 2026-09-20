@@ -142,7 +142,7 @@ export default function ExamSession({ subject, chapter = null, level, mode, onEx
       }
 
       // FLASHCARDS
-      if (mode === "flashcards") {
+      if (mode === "flashcards" || mode === "flashcard") {
         if (given === "correct") {
           correct += 1;
           bySubject[sTitle].correct += 1;
@@ -198,7 +198,7 @@ export default function ExamSession({ subject, chapter = null, level, mode, onEx
     setResults(r);
 
     // Flashcards aren't graded, so nothing to save
-    if (mode === "flashcards") return;
+    if (mode === "flashcards" || mode === "flashcard") return;
 
     const durationSeconds =
       mode === "timed" ? initialDuration - timeLeft : null;
@@ -270,11 +270,14 @@ export default function ExamSession({ subject, chapter = null, level, mode, onEx
     );
   }
 
+  const normalizedMode =
+    mode === "flashcard" || mode === "flashcards" ? "flashcards" : mode;
+
   return (
     <View style={{ flex: 1 }}>
       {screen === "question" && (
         <ExamQuestionScreen
-          mode={mode}
+          mode={normalizedMode}
           subjectLabel={subjectLabel}
           levelLabel={levelLabel}
           questions={questions}
