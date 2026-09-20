@@ -337,7 +337,7 @@ export default function ChapterDetails() {
               <View style={styles.modeTitleRow}>
                 <Text style={styles.modeTitle}>Timed Practice</Text>
                 <View style={styles.modeBadge}>
-                  <Text style={styles.modeBadgeText}>30 Mins</Text>
+                  <Text style={styles.modeBadgeText}>40 Mins</Text>
                 </View>
               </View>
               <Text style={styles.modeDesc}>
