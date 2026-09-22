@@ -22,7 +22,13 @@ function getMotivation(percent) {
   return "Don't give up, try harder next time!";
 }
 
-export default function ExamResultScreen({ results, onRetake, onHome }) {
+export default function ExamResultScreen({
+  results,
+  examTitle: propExamTitle,
+  levelLabel: propLevelLabel,
+  onRetake,
+  onHome,
+}) {
   const {
     correct = 0,
     wrong = 0,
@@ -30,7 +36,12 @@ export default function ExamResultScreen({ results, onRetake, onHome }) {
     total = 0,
     breakdown = {},
     mode = "timed",
+    examTitle: resultExamTitle,
+    levelLabel: resultLevelLabel,
   } = results || {};
+
+  const effectiveTitle = propExamTitle || resultExamTitle || null;
+  const effectiveLevel = propLevelLabel || resultLevelLabel || null;
 
   const subjectBreakdown = results?.subjectBreakdown || (Array.isArray(breakdown) ? breakdown : []) || [];
   const timeLeft = results?.timeLeft ?? 0;
@@ -91,6 +102,18 @@ export default function ExamResultScreen({ results, onRetake, onHome }) {
           <Text style={styles.completedLabel}>
             {isFlashcards ? "Flashcards Completed" : "Exam Completed"}
           </Text>
+
+          {effectiveTitle && (
+            <View style={styles.titleBadge}>
+              <Text style={styles.titleBadgeText} numberOfLines={2}>
+                {effectiveTitle}
+              </Text>
+            </View>
+          )}
+
+          {effectiveLevel && (
+            <Text style={styles.levelSubtitle}>{effectiveLevel}</Text>
+          )}
 
           <Text style={styles.scoreFraction}>
             {correct} out of {total}
@@ -234,6 +257,33 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     letterSpacing: 1,
+  },
+
+  titleBadge: {
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+    maxWidth: "92%",
+  },
+
+  titleBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  levelSubtitle: {
+    color: "#DCE6FF",
+    fontSize: 12,
+    fontWeight: "500",
+    marginTop: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
 
   scoreFraction: {

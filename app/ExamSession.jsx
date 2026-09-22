@@ -187,6 +187,8 @@ export default function ExamSession({ subject, chapter = null, level, mode, onEx
       timeLeft,
       hasTimer: mode === "timed",
       subjectBreakdown,
+      examTitle: subjectLabel,
+      levelLabel,
     };
   };
 
@@ -296,6 +298,8 @@ export default function ExamSession({ subject, chapter = null, level, mode, onEx
       {screen === "result" && results && (
         <ExamResultScreen
           results={results}
+          examTitle={subjectLabel}
+          levelLabel={levelLabel}
           onRetake={resetSession}
           onHome={() => {
             stopSpeaking();

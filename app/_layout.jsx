@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { useEffect } from "react";
 import * as SplashScreen from "expo-splash-screen";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "../context/AuthContext";
 
 SplashScreen.preventAutoHideAsync();
@@ -15,8 +16,10 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }} />
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

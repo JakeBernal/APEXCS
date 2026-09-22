@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { getAttemptHistory, PASS_THRESHOLD } from "../../lib/attempts";
 
 const COLORS = {
@@ -599,25 +599,46 @@ export default function Stats() {
             const examNumber =
               filtered.length - index;
 
-            /*
-             * When All Categories is selected,
-             * show Exam # instead of the category name.
-             */
+            // Extract Category and Sub-category (Chapter/Topic)
+            let categoryName = "Full Mock Exam";
+            let subCategoryName = null;
 
-            const displayTitle =
-              categoryFilter ===
-              "__all_categories__"
-                ? `Exam #${examNumber}`
-                : attempt.subject_title ||
-                  `Exam #${examNumber}`;
+            if (attempt.subject_title && attempt.subject_title.trim() !== "") {
+              if (attempt.subject_title.includes(" › ")) {
+                const parts = attempt.subject_title.split(" › ");
+                categoryName = parts[0].trim();
+                subCategoryName = parts[1].trim();
+              } else {
+                categoryName = attempt.subject_title.trim();
+              }
+            } else if (
+              attempt.subject_breakdown?.length === 1 &&
+              attempt.subject_breakdown[0]?.title
+            ) {
+              categoryName = attempt.subject_breakdown[0].title;
+            }
+
+            const levelLabel =
+              attempt.level === "professional"
+                ? "Professional"
+                : "Sub-Professional";
 
             return (
-              <View
+              <TouchableOpacity
                 key={
                   attempt.id ??
                   `${attempt.subject_title}-${attempt.level}-${index}`
                 }
                 style={styles.card}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (attempt.id) {
+                    router.push({
+                      pathname: "/examReview",
+                      params: { attemptId: attempt.id },
+                    });
+                  }
+                }}
               >
                 {/* CARD HEADER */}
 
@@ -649,26 +670,35 @@ export default function Stats() {
                     </Text>
                   </View>
 
-                  {/* TITLE */}
+                  {/* TITLE & LEVEL/CATEGORY SUBTITLE */}
 
                   <View
                     style={{
                       flex: 1,
                       marginLeft: 10,
+                      marginRight: 6,
                     }}
                   >
                     <Text
                       style={styles.examTitle}
                       numberOfLines={1}
                     >
-                      {displayTitle}
+                      Exam #{examNumber}
                     </Text>
 
-                    <Text style={styles.examType}>
-                      {attempt.level ===
-                      "professional"
-                        ? "Professional"
-                        : "Sub-Professional"}
+                    <Text
+                      style={styles.examType}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.82}
+                    >
+                      <Text style={styles.levelLabel}>{levelLabel}</Text>
+                      {categoryName ? (
+                        <>
+                          <Text style={styles.categoryDivider}> • </Text>
+                          <Text style={styles.categoryLabel}>{categoryName}</Text>
+                        </>
+                      ) : null}
                     </Text>
                   </View>
 
@@ -702,7 +732,7 @@ export default function Stats() {
                   </View>
                 </View>
 
-                {/* SUBJECT BREAKDOWN */}
+                {/* SUBJECT / SUB-CATEGORY BREAKDOWN */}
 
                 {(
                   attempt.subject_breakdown ||
@@ -718,10 +748,18 @@ export default function Stats() {
                           )
                         : 0;
 
+                    // If a specific sub-category was taken, display that sub-category on the progress bar
+                    const progressLabel =
+                      subCategoryName ||
+                      (subject.chapters?.length === 1 &&
+                      subject.chapters[0]?.title
+                        ? subject.chapters[0].title
+                        : subject.title);
+
                     return (
                       <ProgressRow
                         key={`${subject.title}-${subjectIndex}`}
-                        label={subject.title}
+                        label={progressLabel}
                         percent={percent}
                         color={
                           SUBJECT_COLORS[
@@ -809,7 +847,17 @@ export default function Stats() {
                     </View>
                   )}
                 </View>
-              </View>
+
+                {/* REVIEW ANSWERS FOOTER */}
+                <View style={styles.reviewLinkRow}>
+                  <Text style={styles.reviewLinkText}>Review Past Answers</Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={14}
+                    color={COLORS.primary}
+                  />
+                </View>
+              </TouchableOpacity>
             );
           })}
       </ScrollView>
@@ -1081,7 +1129,26 @@ const styles = StyleSheet.create({
 
   examType: {
     color: COLORS.muted,
+    fontSize: 11,
     marginTop: 2,
+  },
+
+  levelLabel: {
+    color: COLORS.muted,
+    fontWeight: "500",
+    fontSize: 11,
+  },
+
+  categoryDivider: {
+    color: "#B4C0D3",
+    fontWeight: "700",
+    fontSize: 11,
+  },
+
+  categoryLabel: {
+    color: COLORS.primary,
+    fontWeight: "600",
+    fontSize: 11,
   },
 
   failedBadge: {
@@ -1146,5 +1213,22 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     marginTop: 4,
     textAlign: "center",
+  },
+
+  reviewLinkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 14,
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#EEF1F5",
+    gap: 4,
+  },
+
+  reviewLinkText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.primary,
   },
 });

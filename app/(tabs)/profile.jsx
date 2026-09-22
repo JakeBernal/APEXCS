@@ -281,7 +281,7 @@ export default function Profile() {
     <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* ================= HEADER ================= */}
         <LinearGradient
