@@ -854,7 +854,7 @@ export default function Stats() {
                   <Ionicons
                     name="chevron-forward"
                     size={14}
-                    color={COLORS.primary}
+                    color={"#9a9b9c9d"}
                   />
                 </View>
               </TouchableOpacity>
@@ -1229,6 +1229,6 @@ const styles = StyleSheet.create({
   reviewLinkText: {
     fontSize: 12,
     fontWeight: "700",
-    color: COLORS.primary,
+    color: "#9a9b9c9d"
   },
 });

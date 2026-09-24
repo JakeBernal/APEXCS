@@ -18,11 +18,21 @@ import { StatusBar } from "expo-status-bar";
 
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import { getDashboardSummary, resetUserProgress } from "../../lib/attempts";
+import {
+  getStudyReminders,
+  isReminderDueToday,
+  getTodayQuestionsProgress,
+} from "../../lib/remindersHelper";
+import {
+  getAvatarSource,
+  getUserAvatar,
+} from "../../lib/avatarHelper";
 
 const { width } = Dimensions.get("window");
 
@@ -144,6 +154,17 @@ export default function Dashboard() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [resettingProgress, setResettingProgress] = useState(false);
+  const [avatarId, setAvatarId] = useState("avatar1");
+  const [reminderSettings, setReminderSettings] = useState(null);
+  const [reminderDismissed, setReminderDismissed] = useState(false);
+  const [dailyProgress, setDailyProgress] = useState({
+    completed: 0,
+    target: 20,
+    percent: 0,
+    isCompleted: false,
+    remaining: 20,
+    taskString: "0 out of 20 questions",
+  });
 
   const flatListRef = useRef();
 
@@ -155,6 +176,15 @@ export default function Dashboard() {
     examReadiness: 0,
     subjectReadiness: [],
   });
+
+  const [expandedSubjects, setExpandedSubjects] = useState({});
+
+  const toggleSubjectExpand = (title) => {
+    setExpandedSubjects((prev) => ({
+      ...prev,
+      [title]: !prev[title],
+    }));
+  };
 
   /*
    * Load dashboard data for the selected exam level.
@@ -185,7 +215,26 @@ export default function Dashboard() {
   useFocusEffect(
     React.useCallback(() => {
       loadDashboard();
-    }, [selectedLevel])
+      if (user?.id) {
+        getUserAvatar(user.id).then((savedAvatar) => {
+          if (savedAvatar) setAvatarId(savedAvatar);
+        });
+        getStudyReminders(user.id).then((data) => {
+          if (data) {
+            setReminderSettings(data);
+            getTodayQuestionsProgress(user.id, data.goalQuestions).then(
+              (prog) => {
+                if (prog) setDailyProgress(prog);
+              }
+            );
+          } else {
+            getTodayQuestionsProgress(user.id, 20).then((prog) => {
+              if (prog) setDailyProgress(prog);
+            });
+          }
+        });
+      }
+    }, [selectedLevel, user?.id])
   );
 
   // Route guard: double check Supabase storage to prevent false bounce during OAuth redirects
@@ -346,6 +395,9 @@ export default function Dashboard() {
       return {
         title: subjectName,
         percent: existingSubject?.percent ?? 0,
+        totalAttempted: existingSubject?.totalAttempted ?? 0,
+        totalCorrect: existingSubject?.totalCorrect ?? 0,
+        chapters: existingSubject?.chapters || [],
       };
     }
   );
@@ -497,14 +549,30 @@ export default function Dashboard() {
             ===================================================== */}
 
         <View style={styles.header}>
-          <View>
-            <Text style={styles.welcome}>
-              Welcome Back
-            </Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              onPress={() => router.push("/(tabs)/profile")}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="View profile"
+              style={styles.headerAvatarWrap}
+            >
+              <Image
+                source={getAvatarSource(avatarId)}
+                style={styles.headerAvatar}
+                contentFit="cover"
+              />
+            </TouchableOpacity>
 
-            <Text style={styles.dashboard}>
-              {displayName}
-            </Text>
+            <View style={{ marginLeft: 12 }}>
+              <Text style={styles.welcome}>
+                Welcome Back
+              </Text>
+
+              <Text style={styles.dashboard}>
+                {displayName}
+              </Text>
+            </View>
           </View>
 
           {/* HAMBURGER BUTTON */}
@@ -597,6 +665,98 @@ export default function Dashboard() {
         />
 
         {/* =====================================================
+            DAILY STUDY TASK & REMINDER CARD
+            ===================================================== */}
+        {!reminderDismissed &&
+          reminderSettings?.enabled &&
+          isReminderDueToday(reminderSettings) && (
+            <View style={styles.taskCard}>
+              {/* Header row */}
+              <View style={styles.taskHeaderRow}>
+                <View style={styles.taskHeaderLeft}>
+                  <View
+                    style={[
+                      styles.taskIconWrap,
+                      dailyProgress.isCompleted && styles.taskIconWrapCompleted,
+                    ]}
+                  >
+                    <Ionicons
+                      name={
+                        dailyProgress.isCompleted
+                          ? "checkmark-circle"
+                          : "notifications"
+                      }
+                      size={20}
+                      color={
+                        dailyProgress.isCompleted ? "#10B981" : COLORS.primary
+                      }
+                    />
+                  </View>
+                  <View style={{ marginLeft: 10 }}>
+                    <Text style={styles.taskTitle}>Today's Study Goal</Text>
+                    <Text style={styles.taskSubtitle}>
+                      {reminderSettings.timeString} • Daily Practice
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.taskDismissBtn}
+                  onPress={() => setReminderDismissed(true)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss task card"
+                >
+                  <Ionicons name="close" size={16} color={COLORS.muted} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Task progress info */}
+              <View style={styles.taskProgressSection}>
+                <View style={styles.taskMetaRow}>
+                  <Text style={styles.taskProgressText}>
+                    {dailyProgress.completed} out of {dailyProgress.target} questions
+                  </Text>
+                  <Text
+                    style={[
+                      styles.taskPercentText,
+                      dailyProgress.isCompleted && styles.taskPercentTextCompleted,
+                    ]}
+                  >
+                    {dailyProgress.percent}%
+                  </Text>
+                </View>
+
+                {/* Progress Bar Track */}
+                <View style={styles.taskTrack}>
+                  <View
+                    style={[
+                      styles.taskFill,
+                      {
+                        width: `${Math.max(
+                          dailyProgress.percent,
+                          dailyProgress.completed > 0 ? 5 : 0
+                        )}%`,
+                      },
+                      dailyProgress.isCompleted && styles.taskFillCompleted,
+                    ]}
+                  />
+                </View>
+
+                <View style={styles.taskFooterRow}>
+                  <Text style={styles.taskHint}>
+                    {dailyProgress.isCompleted
+                      ? "🎉 Daily goal completed! Excellent work."
+                      : `${dailyProgress.remaining} question${
+                          dailyProgress.remaining === 1 ? "" : "s"
+                        } left to reach today's target.`}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+        {/* =====================================================
             SUBJECT READINESS
             ===================================================== */}
 
@@ -620,48 +780,186 @@ export default function Dashboard() {
         )}
 
         {dashboardSubjects.map((subject) => {
-          const color = getReadinessColor(
-            subject.percent
-          );
+          const color = getReadinessColor(subject.percent);
+          const isExpanded = !!expandedSubjects[subject.title];
+          const hasChapters =
+            Array.isArray(subject.chapters) && subject.chapters.length > 0;
 
           return (
             <View
               key={subject.title}
               style={styles.performanceCard}
             >
-              <View style={styles.performanceRow}>
-                <Text
-                  style={styles.performanceLabel}
-                >
-                  {subject.title}
-                </Text>
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => hasChapters && toggleSubjectExpand(subject.title)}
+                accessibilityRole="button"
+                accessibilityLabel={`${subject.title} readiness: ${subject.percent}%. ${
+                  hasChapters
+                    ? isExpanded
+                      ? "Collapse topics"
+                      : "Expand topics"
+                    : ""
+                }`}
+                style={styles.performanceHeaderBtn}
+              >
+                <View style={styles.performanceRow}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <Text style={styles.performanceLabel}>
+                      {subject.title}
+                    </Text>
+                    {hasChapters && (
+                      <Text style={styles.performanceSubCount}>
+                        {subject.chapters.length} Topics • {isExpanded ? "Hide" : "View breakdown"}
+                      </Text>
+                    )}
+                  </View>
 
-                <Text
-                  style={[
-                    styles.performanceValue,
-                    {
-                      color,
-                    },
-                  ]}
-                >
-                  {subject.percent}%
-                </Text>
-              </View>
+                  <View style={styles.performanceRight}>
+                    <Text
+                      style={[
+                        styles.performanceValue,
+                        {
+                          color,
+                        },
+                      ]}
+                    >
+                      {subject.percent}%
+                    </Text>
+                    {hasChapters && (
+                      <Ionicons
+                        name={isExpanded ? "chevron-up" : "chevron-down"}
+                        size={18}
+                        color={COLORS.muted}
+                        style={{ marginLeft: 6 }}
+                      />
+                    )}
+                  </View>
+                </View>
 
-              <View style={styles.progressBarBg}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: `${Math.min(
-                        subject.percent,
-                        100
-                      )}%`,
-                      backgroundColor: color,
-                    },
-                  ]}
-                />
-              </View>
+                <View style={styles.progressBarBg}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: `${Math.min(
+                          subject.percent,
+                          100
+                        )}%`,
+                        backgroundColor: color,
+                      },
+                    ]}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              {/* EXPANDABLE SUB-CATEGORIES ACCORDION */}
+              {isExpanded && hasChapters && (
+                <View style={styles.subCategoryContainer}>
+                  <View style={styles.subCategoryDivider} />
+                  <View style={styles.subCategoryHeaderRow}>
+                    <Text style={styles.subCategoryHeaderTitle}>
+                      Topic Breakdown
+                    </Text>
+                    <Text style={styles.subCategoryHeaderHint}>
+                      Tap topic to practice ›
+                    </Text>
+                  </View>
+
+                  {subject.chapters.map((ch, chIdx) => {
+                    const isAttempted = (ch.totalAttempted ?? 0) > 0;
+                    const chPercent = ch.percent;
+                    const chColor =
+                      isAttempted && chPercent !== null
+                        ? getReadinessColor(chPercent)
+                        : COLORS.muted;
+
+                    return (
+                      <TouchableOpacity
+                        key={ch.id || `${ch.title}-${chIdx}`}
+                        style={styles.subCategoryItem}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          router.push({
+                            pathname: "/chapterDetails",
+                            params: {
+                              category: subject.title,
+                              chapter: ch.title,
+                              level: selectedLevel,
+                            },
+                          });
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${ch.title}: ${
+                          isAttempted && chPercent !== null
+                            ? `${chPercent}%`
+                            : "Not Started"
+                        }. Tap to practice.`}
+                      >
+                        <View style={styles.subCategoryTopRow}>
+                          <View style={{ flex: 1, marginRight: 10 }}>
+                            <Text
+                              style={styles.subCategoryTitle}
+                              numberOfLines={1}
+                            >
+                              {ch.title}
+                            </Text>
+                            <Text style={styles.subCategoryMeta}>
+                              {isAttempted
+                                ? `${ch.totalCorrect ?? 0}/${
+                                    ch.totalAttempted ?? 0
+                                  } correct`
+                                : "Not started yet"}
+                            </Text>
+                          </View>
+
+                          <View style={styles.subCategoryScoreWrap}>
+                            <Text
+                              style={[
+                                styles.subCategoryPercentText,
+                                {
+                                  color: isAttempted
+                                    ? chColor
+                                    : COLORS.muted,
+                                },
+                              ]}
+                            >
+                              {isAttempted && chPercent !== null
+                                ? `${chPercent}%`
+                                : "Not Started"}
+                            </Text>
+                            <Ionicons
+                              name="chevron-forward"
+                              size={14}
+                              color="#A0AEC0"
+                              style={{ marginLeft: 4 }}
+                            />
+                          </View>
+                        </View>
+
+                        {/* MINI PROGRESS TRACK */}
+                        <View style={styles.subProgressBarBg}>
+                          <View
+                            style={[
+                              styles.subProgressBarFill,
+                              {
+                                width: `${
+                                  isAttempted && chPercent !== null
+                                    ? Math.min(chPercent, 100)
+                                    : 0
+                                }%`,
+                                backgroundColor: isAttempted
+                                  ? chColor
+                                  : "#CBD5E1",
+                              },
+                            ]}
+                          />
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           );
         })}
@@ -698,13 +996,22 @@ export default function Dashboard() {
             {/* MENU HEADER */}
 
             <View style={styles.menuHeader}>
-              <View style={styles.menuProfileIcon}>
-                <Ionicons
-                  name="person"
-                  size={22}
-                  color="#fff"
+              <TouchableOpacity
+                style={styles.menuAvatarWrapper}
+                onPress={() => {
+                  setMenuVisible(false);
+                  router.push("/(tabs)/profile");
+                }}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="View profile"
+              >
+                <Image
+                  source={getAvatarSource(avatarId)}
+                  style={styles.menuAvatarImage}
+                  contentFit="cover"
                 />
-              </View>
+              </TouchableOpacity>
 
               <View style={styles.menuUserInfo}>
                 <Text style={styles.menuWelcome}>
@@ -959,6 +1266,29 @@ export default function Dashboard() {
               </TouchableOpacity>
             </View>
 
+            {/* EXAMINEE PROFILE IDENTITY CARD */}
+            <TouchableOpacity
+              style={styles.settingsProfileCard}
+              onPress={() => {
+                setSettingsModalVisible(false);
+                router.push("/(tabs)/profile");
+              }}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="View profile or change avatar"
+            >
+              <Image
+                source={getAvatarSource(avatarId)}
+                style={styles.settingsAvatarImage}
+                contentFit="cover"
+              />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.settingsProfileName}>{displayName}</Text>
+                <Text style={styles.settingsProfileSub}>Civil Service Examinee • Change Avatar ›</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={COLORS.muted} />
+            </TouchableOpacity>
+
             {/* TESTING & PROGRESS SECTION */}
             <View style={styles.settingsSection}>
               <Text style={styles.settingsSectionTitle}>
@@ -1054,15 +1384,38 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
   },
 
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 12,
+  },
+
+  headerAvatarWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    overflow: "hidden",
+    backgroundColor: "#EFF6FF",
+  },
+
+  headerAvatar: {
+    width: "100%",
+    height: "100%",
+  },
+
   welcome: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.muted,
   },
 
   dashboard: {
-    fontSize: 30,
+    fontSize: 22,
     fontWeight: "800",
     color: COLORS.text,
+    letterSpacing: -0.3,
   },
 
   /* ================= EXAM LEVEL ================= */
@@ -1326,6 +1679,107 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
 
+  performanceHeaderBtn: {
+    paddingVertical: 2,
+  },
+
+  performanceRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  performanceSubCount: {
+    fontSize: 12,
+    color: COLORS.muted,
+    marginTop: 2,
+    fontWeight: "500",
+  },
+
+  /* ================= SUB-CATEGORIES ACCORDION ================= */
+
+  subCategoryContainer: {
+    marginTop: 14,
+  },
+
+  subCategoryDivider: {
+    height: 1,
+    backgroundColor: "#EEF2F6",
+    marginBottom: 12,
+  },
+
+  subCategoryHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+
+  subCategoryHeaderTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: COLORS.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+
+  subCategoryHeaderHint: {
+    fontSize: 11,
+    color: COLORS.primary,
+    fontWeight: "600",
+  },
+
+  subCategoryItem: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+
+  subCategoryTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  subCategoryTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+
+  subCategoryMeta: {
+    fontSize: 11,
+    color: COLORS.muted,
+    marginTop: 2,
+    fontWeight: "500",
+  },
+
+  subCategoryScoreWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  subCategoryPercentText: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  subProgressBarBg: {
+    height: 6,
+    backgroundColor: "#EEF2F6",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+
+  subProgressBarFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+
   /* ================= MENU OVERLAY ================= */
 
   menuOverlay: {
@@ -1375,6 +1829,21 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.28)",
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  menuAvatarWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.4)",
+    overflow: "hidden",
+  },
+
+  menuAvatarImage: {
+    width: "100%",
+    height: "100%",
   },
 
   menuUserInfo: {
@@ -1507,6 +1976,109 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
 
+  /* ================= DAILY STUDY TASK CARD ================= */
+  taskCard: {
+    marginHorizontal: 20,
+    marginTop: 18,
+    marginBottom: 6,
+    backgroundColor: "#FFFFFF",
+    borderRadius: RADIUS.md,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  taskHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  taskHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  taskIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#EFF6FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  taskIconWrapCompleted: {
+    backgroundColor: "#ECFDF5",
+  },
+  taskTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  taskSubtitle: {
+    fontSize: 11,
+    color: COLORS.muted,
+    marginTop: 1,
+    fontWeight: "500",
+  },
+  taskDismissBtn: {
+    padding: 6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  taskProgressSection: {
+    marginTop: 2,
+  },
+  taskMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  taskProgressText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  taskPercentText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: COLORS.primary,
+  },
+  taskPercentTextCompleted: {
+    color: "#10B981",
+  },
+  taskTrack: {
+    height: 8,
+    backgroundColor: "#EEF2F6",
+    borderRadius: 4,
+    overflow: "hidden",
+    marginBottom: 10,
+  },
+  taskFill: {
+    height: "100%",
+    backgroundColor: COLORS.primary,
+    borderRadius: 4,
+  },
+  taskFillCompleted: {
+    backgroundColor: "#10B981",
+  },
+  taskFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  taskHint: {
+    fontSize: 11,
+    color: COLORS.muted,
+    fontWeight: "500",
+    flex: 1,
+  },
+
   /* ================= SETTINGS MODAL ================= */
 
   settingsOverlay: {
@@ -1539,6 +2111,35 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
+  },
+
+  settingsProfileCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 16,
+  },
+  settingsAvatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+  },
+  settingsProfileName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  settingsProfileSub: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: "600",
+    marginTop: 2,
   },
 
   settingsHeaderTitleRow: {

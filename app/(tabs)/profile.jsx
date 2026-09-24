@@ -9,13 +9,31 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
+  Switch,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
 import { getDashboardSummary, getStudyStreak } from "../../lib/attempts";
 import { getExamDate, setExamDate } from "../../lib/Profiledata";
+import {
+  AVATARS,
+  getAvatarSource,
+  getUserAvatar,
+  setUserAvatar,
+} from "../../lib/avatarHelper";
+import {
+  DAYS_OF_WEEK,
+  PRESET_TIMES,
+  GOAL_OPTIONS,
+  DEFAULT_REMINDER_SETTINGS,
+  formatReminderSummary,
+  getStudyReminders,
+  saveStudyReminders,
+  getTodayQuestionsProgress,
+} from "../../lib/remindersHelper";
 
 /* =========================================================================
    DESIGN TOKENS & PALETTE
@@ -182,6 +200,20 @@ export default function Profile() {
   const email = user?.email || "";
   const initial = fullName.charAt(0).toUpperCase();
 
+  const [avatarId, setAvatarId] = useState("avatar1");
+  const [avatarModalVisible, setAvatarModalVisible] = useState(false);
+
+  const [reminderSettings, setReminderSettings] = useState(DEFAULT_REMINDER_SETTINGS);
+  const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const [dailyProgress, setDailyProgress] = useState({
+    completed: 0,
+    target: 20,
+    percent: 0,
+    isCompleted: false,
+    remaining: 20,
+    taskString: "0 out of 20 questions",
+  });
+
   const [summary, setSummary] = useState({
     examsTaken: 0,
     bestScore: 0,
@@ -198,16 +230,60 @@ export default function Profile() {
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      Promise.all([getDashboardSummary(), getStudyStreak(), getExamDate()])
-        .then(([summaryData, streakData, examDateData]) => {
-          setSummary(summaryData || { examsTaken: 0, bestScore: 0, lastScore: 0, avgScore: 0 });
+      Promise.all([
+        getDashboardSummary(),
+        getStudyStreak(),
+        getExamDate(),
+        getUserAvatar(user?.id),
+        getStudyReminders(user?.id),
+      ])
+        .then(([summaryData, streakData, examDateData, savedAvatar, savedReminders]) => {
+          setSummary(
+            summaryData || {
+              examsTaken: 0,
+              bestScore: 0,
+              lastScore: 0,
+              avgScore: 0,
+            }
+          );
           setStreak(streakData || 0);
           setExamDateState(examDateData);
+          if (savedAvatar) setAvatarId(savedAvatar);
+          if (savedReminders) {
+            setReminderSettings(savedReminders);
+            getTodayQuestionsProgress(user?.id, savedReminders.goalQuestions).then(
+              (p) => p && setDailyProgress(p)
+            );
+          } else {
+            getTodayQuestionsProgress(user?.id, 20).then(
+              (p) => p && setDailyProgress(p)
+            );
+          }
         })
         .catch((err) => console.error("Profile load error:", err))
         .finally(() => setLoading(false));
-    }, [])
+    }, [user?.id])
   );
+
+  const handleSelectAvatar = async (id) => {
+    setAvatarId(id);
+    if (user?.id) {
+      await setUserAvatar(user.id, id);
+    }
+  };
+
+  const handleSaveReminders = async (newSettings) => {
+    setReminderSettings(newSettings);
+    setReminderModalVisible(false);
+    if (user?.id) {
+      await saveStudyReminders(user.id, newSettings);
+      const updatedProg = await getTodayQuestionsProgress(
+        user.id,
+        newSettings.goalQuestions
+      );
+      if (updatedProg) setDailyProgress(updatedProg);
+    }
+  };
 
   const handleSelectExamDate = async (date) => {
     setCalendarVisible(false);
@@ -295,9 +371,24 @@ export default function Profile() {
           </View>
 
           <View style={styles.profileRow}>
-            <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>{initial}</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.avatarWrapper}
+              onPress={() => setAvatarModalVisible(true)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Change Profile Avatar"
+            >
+              <Image
+                source={getAvatarSource(avatarId)}
+                style={styles.avatarImage}
+                contentFit="cover"
+                transition={200}
+              />
+              <View style={styles.editAvatarBadge}>
+                <Ionicons name="camera" size={12} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+
             <View style={styles.profileMeta}>
               <Text style={styles.profileName} numberOfLines={1}>{fullName}</Text>
               <Text style={styles.profileEmail} numberOfLines={1}>{email}</Text>
@@ -467,9 +558,34 @@ export default function Profile() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Account Preferences</Text>
 
-            <SettingRow icon="person-outline" title="Personal Information" />
-            <SettingRow icon="notifications-outline" title="Study Reminders" />
-            <SettingRow icon="shield-checkmark-outline" title="Security & Password" isLast />
+            <SettingRow
+              icon="person-outline"
+              title="Personal Information"
+              onPress={() =>
+                Alert.alert(
+                  "Personal Information",
+                  `Name: ${fullName}\nEmail: ${email || "Not specified"}\nRole: Civil Service Examinee`
+                )
+              }
+            />
+            <SettingRow
+              icon="notifications-outline"
+              title="Study Reminders"
+              badge={formatReminderSummary(reminderSettings)}
+              badgeActive={reminderSettings.enabled}
+              onPress={() => setReminderModalVisible(true)}
+            />
+            <SettingRow
+              icon="shield-checkmark-outline"
+              title="Security & Password"
+              isLast
+              onPress={() =>
+                Alert.alert(
+                  "Security & Password",
+                  "Your account is secured with Supabase Authentication. Password management links are delivered to your registered email address."
+                )
+              }
+            />
           </View>
 
           {/* ================= STANDALONE LOGOUT BUTTON ================= */}
@@ -491,6 +607,85 @@ export default function Profile() {
         onClose={() => setCalendarVisible(false)}
         onSelect={handleSelectExamDate}
       />
+
+      {/* Avatar Picker Modal */}
+      <Modal
+        visible={avatarModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAvatarModalVisible(false)}
+      >
+        <View style={avatarStyles.overlay}>
+          <View style={avatarStyles.card}>
+            <View style={avatarStyles.header}>
+              <Text style={avatarStyles.title}>Choose Your Avatar</Text>
+              <Text style={avatarStyles.subtitle}>
+                Select an examinee avatar for your profile identity
+              </Text>
+            </View>
+
+            <ScrollView
+              style={avatarStyles.scrollContainer}
+              contentContainerStyle={avatarStyles.grid}
+              showsVerticalScrollIndicator={false}
+            >
+              {AVATARS.map((item) => {
+                const isSelected = item.id === avatarId;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      avatarStyles.avatarOption,
+                      isSelected && avatarStyles.avatarOptionSelected,
+                    ]}
+                    onPress={() => handleSelectAvatar(item.id)}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select ${item.name} avatar`}
+                  >
+                    <Image
+                      source={item.source}
+                      style={avatarStyles.previewImage}
+                      contentFit="cover"
+                    />
+                    {isSelected && (
+                      <View style={avatarStyles.checkBadge}>
+                        <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+                      </View>
+                    )}
+                    <Text
+                      style={[
+                        avatarStyles.avatarName,
+                        isSelected && avatarStyles.avatarNameSelected,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={avatarStyles.doneBtn}
+              onPress={() => setAvatarModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={avatarStyles.doneBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Study Reminders Modal */}
+      <StudyRemindersModal
+        visible={reminderModalVisible}
+        initialSettings={reminderSettings}
+        dailyProgress={dailyProgress}
+        onClose={() => setReminderModalVisible(false)}
+        onSave={handleSaveReminders}
+      />
     </View>
   );
 }
@@ -510,16 +705,420 @@ function MetricBox({ icon, iconColor, iconBg, label, value }) {
   );
 }
 
-function SettingRow({ icon, title, isLast }) {
+/* =========================================================================
+   STUDY REMINDERS MODAL
+   ========================================================================= */
+function StudyRemindersModal({
+  visible,
+  initialSettings,
+  dailyProgress,
+  onClose,
+  onSave,
+}) {
+  const [enabled, setEnabled] = useState(initialSettings?.enabled ?? true);
+  const [selectedDays, setSelectedDays] = useState(
+    initialSettings?.days || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  );
+  const [hour, setHour] = useState(initialSettings?.hour || 7);
+  const [minute, setMinute] = useState(initialSettings?.minute || 0);
+  const [period, setPeriod] = useState(initialSettings?.period || "PM");
+  const [goal, setGoal] = useState(initialSettings?.goalQuestions || 20);
+
+  useEffect(() => {
+    if (visible && initialSettings) {
+      setEnabled(initialSettings.enabled ?? true);
+      setSelectedDays(
+        initialSettings.days || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      );
+      setHour(initialSettings.hour || 7);
+      setMinute(initialSettings.minute || 0);
+      setPeriod(initialSettings.period || "PM");
+      setGoal(initialSettings.goalQuestions || 20);
+    }
+  }, [visible, initialSettings]);
+
+  const toggleDay = (dayKey) => {
+    if (selectedDays.includes(dayKey)) {
+      setSelectedDays(selectedDays.filter((d) => d !== dayKey));
+    } else {
+      setSelectedDays([...selectedDays, dayKey]);
+    }
+  };
+
+  const setPresetDays = (type) => {
+    if (type === "daily") {
+      setSelectedDays(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    } else if (type === "weekdays") {
+      setSelectedDays(["Mon", "Tue", "Wed", "Thu", "Fri"]);
+    } else if (type === "weekends") {
+      setSelectedDays(["Sat", "Sun"]);
+    }
+  };
+
+  const applyPresetTime = (preset) => {
+    setHour(preset.hour);
+    setMinute(preset.minute);
+    setPeriod(preset.period);
+  };
+
+  const handleSave = () => {
+    const formattedMinute =
+      minute === 0 ? "00" : minute < 10 ? `0${minute}` : `${minute}`;
+    const timeString = `${hour}:${formattedMinute} ${period}`;
+    onSave({
+      enabled,
+      hour,
+      minute,
+      period,
+      timeString,
+      days: selectedDays,
+      goalQuestions: goal,
+    });
+  };
+
+  const formattedMinute =
+    minute === 0 ? "00" : minute < 10 ? `0${minute}` : `${minute}`;
+  const currentTimeDisplay = `${hour}:${formattedMinute} ${period}`;
+
+  const completedCount = dailyProgress?.completed || 0;
+  const isGoalReached = completedCount >= goal;
+  const progressPercent = Math.min(
+    Math.round((completedCount / (goal || 20)) * 100),
+    100
+  );
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={reminderStyles.overlay}>
+        <View style={reminderStyles.card}>
+          {/* Header */}
+          <View style={reminderStyles.header}>
+            <View style={reminderStyles.headerIconWrap}>
+              <Ionicons name="notifications" size={20} color={PALETTE.primary} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={reminderStyles.title}>Study Reminders</Text>
+              <Text style={reminderStyles.subtitle}>
+                Stay consistent for the Civil Service Exam
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={onClose}
+              style={reminderStyles.closeBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Close reminders modal"
+            >
+              <Ionicons name="close" size={20} color={PALETTE.muted} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} style={reminderStyles.scrollArea}>
+            {/* Today's Practice Task Summary */}
+            <View style={reminderStyles.todayProgressCard}>
+              <View style={reminderStyles.todayProgressHeader}>
+                <Text style={reminderStyles.todayProgressTitle}>
+                  Today's Practice Task
+                </Text>
+                <Text style={reminderStyles.todayProgressVal}>
+                  {completedCount} out of {goal} questions
+                </Text>
+              </View>
+              <View style={reminderStyles.todayTrack}>
+                <View
+                  style={[
+                    reminderStyles.todayFill,
+                    { width: `${Math.max(progressPercent, completedCount > 0 ? 5 : 0)}%` },
+                    isGoalReached && reminderStyles.todayFillCompleted,
+                  ]}
+                />
+              </View>
+              <Text style={reminderStyles.todayHint}>
+                {isGoalReached
+                  ? "🎉 Daily study task completed for today!"
+                  : `${Math.max(goal - completedCount, 0)} more question${
+                      Math.max(goal - completedCount, 0) === 1 ? "" : "s"
+                    } to hit your goal.`}
+              </Text>
+            </View>
+
+            {/* Master Switch */}
+            <View style={reminderStyles.switchCard}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={reminderStyles.switchTitle}>Daily Study Alerts</Text>
+                <Text style={reminderStyles.switchSubtitle}>
+                  {enabled
+                    ? "Alerts active on scheduled days"
+                    : "Reminders currently paused"}
+                </Text>
+              </View>
+              <Switch
+                value={enabled}
+                onValueChange={setEnabled}
+                trackColor={{ false: "#D1D5DB", true: PALETTE.primary }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            {enabled && (
+              <>
+                {/* Time Display and Presets */}
+                <View style={reminderStyles.section}>
+                  <Text style={reminderStyles.sectionLabel}>Reminder Time</Text>
+
+                  {/* Digital Clock Display */}
+                  <View style={reminderStyles.clockBanner}>
+                    <Text style={reminderStyles.clockTime}>{currentTimeDisplay}</Text>
+                    <View style={reminderStyles.ampmToggle}>
+                      <TouchableOpacity
+                        style={[
+                          reminderStyles.ampmBtn,
+                          period === "AM" && reminderStyles.ampmBtnActive,
+                        ]}
+                        onPress={() => setPeriod("AM")}
+                        accessibilityRole="button"
+                        accessibilityLabel="AM"
+                      >
+                        <Text
+                          style={[
+                            reminderStyles.ampmText,
+                            period === "AM" && reminderStyles.ampmTextActive,
+                          ]}
+                        >
+                          AM
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          reminderStyles.ampmBtn,
+                          period === "PM" && reminderStyles.ampmBtnActive,
+                        ]}
+                        onPress={() => setPeriod("PM")}
+                        accessibilityRole="button"
+                        accessibilityLabel="PM"
+                      >
+                        <Text
+                          style={[
+                            reminderStyles.ampmText,
+                            period === "PM" && reminderStyles.ampmTextActive,
+                          ]}
+                        >
+                          PM
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Hour and Minute Steppers */}
+                  <View style={reminderStyles.stepperContainer}>
+                    <View style={reminderStyles.stepperCard}>
+                      <Text style={reminderStyles.stepperTitle}>Hour</Text>
+                      <View style={reminderStyles.stepperControls}>
+                        <TouchableOpacity
+                          style={reminderStyles.stepperBtn}
+                          onPress={() => setHour((h) => (h === 1 ? 12 : h - 1))}
+                          accessibilityRole="button"
+                          accessibilityLabel="Decrease hour"
+                        >
+                          <Ionicons name="remove" size={16} color={PALETTE.navy} />
+                        </TouchableOpacity>
+                        <Text style={reminderStyles.stepperValue}>{hour}</Text>
+                        <TouchableOpacity
+                          style={reminderStyles.stepperBtn}
+                          onPress={() => setHour((h) => (h === 12 ? 1 : h + 1))}
+                          accessibilityRole="button"
+                          accessibilityLabel="Increase hour"
+                        >
+                          <Ionicons name="add" size={16} color={PALETTE.navy} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <View style={reminderStyles.stepperCard}>
+                      <Text style={reminderStyles.stepperTitle}>Minute</Text>
+                      <View style={reminderStyles.stepperControls}>
+                        <TouchableOpacity
+                          style={reminderStyles.stepperBtn}
+                          onPress={() => setMinute((m) => (m === 0 ? 45 : m - 15))}
+                          accessibilityRole="button"
+                          accessibilityLabel="Decrease minute"
+                        >
+                          <Ionicons name="remove" size={16} color={PALETTE.navy} />
+                        </TouchableOpacity>
+                        <Text style={reminderStyles.stepperValue}>{formattedMinute}</Text>
+                        <TouchableOpacity
+                          style={reminderStyles.stepperBtn}
+                          onPress={() => setMinute((m) => (m === 45 ? 0 : m + 15))}
+                          accessibilityRole="button"
+                          accessibilityLabel="Increase minute"
+                        >
+                          <Ionicons name="add" size={16} color={PALETTE.navy} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Preset Quick Chips */}
+                  <View style={reminderStyles.timeChipsGrid}>
+                    {PRESET_TIMES.map((preset) => {
+                      const isCurrent =
+                        hour === preset.hour &&
+                        minute === preset.minute &&
+                        period === preset.period;
+                      return (
+                        <TouchableOpacity
+                          key={preset.label}
+                          style={[
+                            reminderStyles.timeChip,
+                            isCurrent && reminderStyles.timeChipActive,
+                          ]}
+                          onPress={() => applyPresetTime(preset)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Preset ${preset.label}`}
+                        >
+                          <Text
+                            style={[
+                              reminderStyles.timeChipText,
+                              isCurrent && reminderStyles.timeChipTextActive,
+                            ]}
+                          >
+                            {preset.label} ({preset.timeString})
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Study Days */}
+                <View style={reminderStyles.section}>
+                  <View style={reminderStyles.sectionHeaderRow}>
+                    <Text style={reminderStyles.sectionLabel}>Active Study Days</Text>
+                    <View style={reminderStyles.presetLinks}>
+                      <TouchableOpacity onPress={() => setPresetDays("daily")}>
+                        <Text style={reminderStyles.presetLink}>Daily</Text>
+                      </TouchableOpacity>
+                      <Text style={reminderStyles.presetDot}>•</Text>
+                      <TouchableOpacity onPress={() => setPresetDays("weekdays")}>
+                        <Text style={reminderStyles.presetLink}>Weekdays</Text>
+                      </TouchableOpacity>
+                      <Text style={reminderStyles.presetDot}>•</Text>
+                      <TouchableOpacity onPress={() => setPresetDays("weekends")}>
+                        <Text style={reminderStyles.presetLink}>Weekends</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={reminderStyles.daysRow}>
+                    {DAYS_OF_WEEK.map((d) => {
+                      const isSelected = selectedDays.includes(d.key);
+                      return (
+                        <TouchableOpacity
+                          key={d.key}
+                          style={[
+                            reminderStyles.dayPill,
+                            isSelected && reminderStyles.dayPillActive,
+                          ]}
+                          onPress={() => toggleDay(d.key)}
+                          accessibilityRole="button"
+                          accessibilityLabel={d.fullName}
+                        >
+                          <Text
+                            style={[
+                              reminderStyles.dayPillText,
+                              isSelected && reminderStyles.dayPillTextActive,
+                            ]}
+                          >
+                            {d.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Daily Question Target */}
+                <View style={reminderStyles.section}>
+                  <Text style={reminderStyles.sectionLabel}>Daily Practice Target</Text>
+                  <View style={reminderStyles.goalsRow}>
+                    {GOAL_OPTIONS.map((num) => {
+                      const isSelected = goal === num;
+                      return (
+                        <TouchableOpacity
+                          key={num}
+                          style={[
+                            reminderStyles.goalPill,
+                            isSelected && reminderStyles.goalPillActive,
+                          ]}
+                          onPress={() => setGoal(num)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${num} questions goal`}
+                        >
+                          <Text
+                            style={[
+                              reminderStyles.goalPillText,
+                              isSelected && reminderStyles.goalPillTextActive,
+                            ]}
+                          >
+                            {num} Qs
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              </>
+            )}
+          </ScrollView>
+
+          {/* Action Button */}
+          <View style={reminderStyles.footer}>
+            <TouchableOpacity
+              style={reminderStyles.saveBtn}
+              onPress={handleSave}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Save reminder preferences"
+            >
+              <Text style={reminderStyles.saveBtnText}>Save Preferences</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function SettingRow({ icon, title, isLast, badge, badgeActive, onPress }) {
   return (
     <TouchableOpacity
       style={[styles.settingRow, isLast && { borderBottomWidth: 0 }]}
-      activeOpacity={0.7}
+      activeOpacity={onPress ? 0.7 : 1}
+      onPress={onPress}
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={title}
     >
       <View style={styles.settingIconWrap}>
         <Ionicons name={icon} size={18} color={PALETTE.navy} />
       </View>
       <Text style={styles.settingText}>{title}</Text>
+      {badge ? (
+        <View
+          style={[
+            styles.settingBadge,
+            badgeActive ? styles.settingBadgeActive : styles.settingBadgeInactive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.settingBadgeText,
+              badgeActive ? styles.settingBadgeTextActive : styles.settingBadgeTextInactive,
+            ]}
+          >
+            {badge}
+          </Text>
+        </View>
+      ) : null}
       <Ionicons name="chevron-forward" size={16} color={PALETTE.muted} />
     </TouchableOpacity>
   );
@@ -554,20 +1153,36 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  avatarContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+  avatarWrapper: {
+    position: "relative",
+    width: 70,
+    height: 70,
+  },
+  avatarImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 22,
+    borderWidth: 2.5,
+    borderColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  editAvatarBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#386BF6",
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.4)",
+    borderColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-  },
-  avatarText: {
-    color: "#FFFFFF",
-    fontSize: 26,
-    fontWeight: "800",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
   },
   profileMeta: {
     flex: 1,
@@ -877,6 +1492,32 @@ const styles = StyleSheet.create({
     color: PALETTE.text,
     fontWeight: "600",
   },
+  settingBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginRight: 8,
+  },
+  settingBadgeActive: {
+    backgroundColor: "#EEF3FF",
+    borderWidth: 1,
+    borderColor: "#DDE7FF",
+  },
+  settingBadgeInactive: {
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  settingBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  settingBadgeTextActive: {
+    color: "#386BF6",
+  },
+  settingBadgeTextInactive: {
+    color: "#94A3B8",
+  },
 
   /* Standalone Logout Button */
   logoutBtn: {
@@ -975,5 +1616,454 @@ const calStyles = StyleSheet.create({
     color: PALETTE.muted,
     fontWeight: "600",
     fontSize: 13,
+  },
+});
+
+/* =========================================================================
+   AVATAR MODAL STYLES
+   ========================================================================= */
+const avatarStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  header: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#14143A",
+  },
+  subtitle: {
+    fontSize: 13,
+    color: "#7D8FB3",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  scrollContainer: {
+    maxHeight: 340,
+    marginBottom: 16,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 12,
+    paddingVertical: 2,
+  },
+  avatarOption: {
+    width: 82,
+    alignItems: "center",
+    padding: 8,
+    borderRadius: 18,
+    borderWidth: 2.5,
+    borderColor: "transparent",
+    backgroundColor: "#F8FAFC",
+  },
+  avatarOptionSelected: {
+    borderColor: "#386BF6",
+    backgroundColor: "#EFF6FF",
+  },
+  previewImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 16,
+  },
+  checkBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#386BF6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+    marginTop: 6,
+  },
+  avatarNameSelected: {
+    color: "#386BF6",
+    fontWeight: "700",
+  },
+  doneBtn: {
+    backgroundColor: "#386BF6",
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  doneBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+});
+
+/* =========================================================================
+   REMINDER MODAL STYLES
+   ========================================================================= */
+const reminderStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 380,
+    maxHeight: "88%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 22,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  headerIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#EFF6FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#14143A",
+  },
+  subtitle: {
+    fontSize: 12,
+    color: "#7D8FB3",
+    marginTop: 2,
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+  },
+  scrollArea: {
+    marginBottom: 16,
+  },
+  todayProgressCard: {
+    backgroundColor: "#EEF3FF",
+    borderWidth: 1.5,
+    borderColor: "#DDE7FF",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+  },
+  todayProgressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  todayProgressTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#152B65",
+  },
+  todayProgressVal: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#386BF6",
+  },
+  todayTrack: {
+    height: 7,
+    backgroundColor: "#DCE6FF",
+    borderRadius: 4,
+    overflow: "hidden",
+    marginBottom: 6,
+  },
+  todayFill: {
+    height: "100%",
+    backgroundColor: "#386BF6",
+    borderRadius: 4,
+  },
+  todayFillCompleted: {
+    backgroundColor: "#10B981",
+  },
+  todayHint: {
+    fontSize: 11,
+    color: "#4B5563",
+    fontWeight: "500",
+  },
+  switchCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F8FAFC",
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#EEF1F5",
+  },
+  switchTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#14143A",
+  },
+  switchSubtitle: {
+    fontSize: 12,
+    color: "#7D8FB3",
+    marginTop: 2,
+  },
+  section: {
+    marginBottom: 16,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#14143A",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  presetLinks: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  presetLink: {
+    fontSize: 12,
+    color: "#386BF6",
+    fontWeight: "600",
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  presetDot: {
+    color: "#CBD5E1",
+    fontSize: 12,
+  },
+  clockBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#EEF3FF",
+    borderWidth: 1.5,
+    borderColor: "#DDE7FF",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  clockTime: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#152B65",
+    letterSpacing: 0.5,
+  },
+  ampmToggle: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: "#DCE6FF",
+  },
+  ampmBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    minHeight: 34,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  ampmBtnActive: {
+    backgroundColor: "#386BF6",
+  },
+  ampmText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#7D8FB3",
+  },
+  ampmTextActive: {
+    color: "#FFFFFF",
+  },
+  stepperContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+  },
+  stepperCard: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 14,
+    padding: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#EEF1F5",
+  },
+  stepperTitle: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#7D8FB3",
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  stepperControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  stepperBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#DCE6FF",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  stepperValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#14143A",
+    minWidth: 32,
+    textAlign: "center",
+  },
+  timeChipsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  timeChip: {
+    flex: 1,
+    minWidth: "45%",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+  },
+  timeChipActive: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#386BF6",
+  },
+  timeChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  timeChipTextActive: {
+    color: "#386BF6",
+    fontWeight: "700",
+  },
+  daysRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  dayPill: {
+    flex: 1,
+    aspectRatio: 1,
+    maxHeight: 44,
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dayPillActive: {
+    backgroundColor: "#386BF6",
+    borderColor: "#386BF6",
+  },
+  dayPillText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#64748B",
+  },
+  dayPillTextActive: {
+    color: "#FFFFFF",
+  },
+  goalsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  goalPill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+  },
+  goalPillActive: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#386BF6",
+  },
+  goalPillText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  goalPillTextActive: {
+    color: "#386BF6",
+    fontWeight: "700",
+  },
+  footer: {
+    marginTop: 4,
+  },
+  saveBtn: {
+    backgroundColor: "#386BF6",
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  saveBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
