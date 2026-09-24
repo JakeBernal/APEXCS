@@ -170,8 +170,11 @@ export default function Dashboard() {
 
   const [summary, setSummary] = useState({
     examsTaken: 0,
+    mockExamsTaken: 0,
     bestScore: 0,
+    bestMockScore: "0/170",
     lastScore: 0,
+    lastMockScore: 0,
     avgScore: 0,
     examReadiness: 0,
     subjectReadiness: [],
@@ -439,9 +442,7 @@ export default function Dashboard() {
           {/* BIG SCORE */}
 
           <Text style={styles.bigScore}>
-            {summary.examReadiness ??
-              summary.avgScore}
-            %
+            {summary.examReadiness ?? 0}%
           </Text>
 
           <Text style={styles.avgScoreLabel}>
@@ -456,8 +457,7 @@ export default function Dashboard() {
                 styles.hBarFill,
                 {
                   width: `${Math.min(
-                    summary.examReadiness ??
-                      summary.avgScore,
+                    summary.examReadiness ?? 0,
                     100
                   )}%`,
                 },
@@ -466,19 +466,28 @@ export default function Dashboard() {
           </View>
 
           <Text style={styles.hBarHint}>
-            Keep going! You need 80% to pass.
+            {(summary.examReadiness ?? 0) >= 80
+              ? "🎉 Excellent! You are meeting the 80% passing standard."
+              : (summary.examReadiness ?? 0) > 0
+              ? "Practice all subjects to reach the 80% passing mark."
+              : "Take mock exams or practice drills to build your readiness."}
           </Text>
 
           {/* STATS ROW */}
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statNum}>
-                {countdown.days}
+              <Text
+                style={styles.statNum}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {summary.bestMockScore ?? (selectedLevel === "sub" ? "0/165" : "0/170")}
               </Text>
 
               <Text style={styles.statUnit}>
-                Days Left
+                Best Score
               </Text>
             </View>
 
@@ -486,7 +495,7 @@ export default function Dashboard() {
 
             <View style={styles.statItem}>
               <Text style={styles.statNum}>
-                {summary.examsTaken}
+                {summary.mockExamsTaken ?? 0}
               </Text>
 
               <Text style={styles.statUnit}>
@@ -498,7 +507,9 @@ export default function Dashboard() {
 
             <View style={styles.statItem}>
               <Text style={styles.statNum}>
-                {summary.lastScore}%
+                {summary.mockExamsTaken > 0 && summary.lastMockScore !== undefined
+                  ? `${summary.lastMockScore}%`
+                  : "0%"}
               </Text>
 
               <Text style={styles.statUnit}>

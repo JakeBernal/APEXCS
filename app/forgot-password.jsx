@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -39,49 +39,124 @@ export default function ForgotPassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  // Countdown timer for resending reset code
+  useEffect(() => {
+    let timer;
+    if (resendCountdown > 0) {
+      timer = setInterval(() => {
+        setResendCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [resendCountdown]);
+
+  // Listen for recovery session in case the user opens via reset link
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) {
+        setStep(3);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   /* ================= STEP 1: SEND 6-DIGIT CODE ================= */
   const handleSendOtp = async () => {
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) {
       Alert.alert("Email Required", "Please enter your registered Gmail address.");
       return;
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+
+    // 1. Try signInWithOtp (native 6-digit OTP code, doesn't require PKCE/links)
+    let sendError = null;
+    const { error: otpSendError } = await supabase.auth.signInWithOtp({
+      email: cleanEmail,
+      options: {
+        shouldCreateUser: false,
+      },
+    });
+
+    if (otpSendError) {
+      // If user doesn't exist, show clear message
+      if (otpSendError.message?.toLowerCase().includes("signups not allowed")) {
+        setLoading(false);
+        Alert.alert("Account Not Found", "No account registered with this email address.");
+        return;
+      }
+
+      // 2. Fallback to resetPasswordForEmail
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+      sendError = resetErr;
+    }
+
     setLoading(false);
 
-    if (error) {
-      Alert.alert("Request Failed", error.message);
+    if (sendError) {
+      Alert.alert("Request Failed", sendError.message);
       return;
     }
 
+    setResendCountdown(60);
     Alert.alert(
       "Code Sent",
-      "We sent a 6-digit verification code to your Gmail. Please check your inbox (and spam folder)."
+      "We sent a verification code to your Gmail. Please check your inbox (and spam folder)."
     );
     setStep(2);
   };
 
-  /* ================= STEP 2: VERIFY 6-DIGIT NUMBER ================= */
+  /* ================= STEP 2: VERIFY VERIFICATION CODE ================= */
   const handleVerifyOtp = async () => {
-    const cleanCode = otpCode.trim();
-    if (cleanCode.length < 6) {
-      Alert.alert("Invalid Code", "Please enter the full 6-digit numeric code sent to your email.");
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = otpCode.trim().replace(/\D/g, ""); // digits only
+    if (cleanCode.length < 6 || cleanCode.length > 8) {
+      Alert.alert("Invalid Code", "Please enter the full numeric verification code sent to your email.");
       return;
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: cleanCode,
-      type: "recovery",
-    });
+
+    let verifyError = null;
+    let verified = false;
+
+    // Check all possible OTP token types in Supabase: email, magiclink, recovery
+    const typesToTry = ["email", "magiclink", "recovery"];
+    for (const otpType of typesToTry) {
+      try {
+        const { data, error } = await supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanCode,
+          type: otpType,
+        });
+
+        if (!error && (data?.session || data?.user)) {
+          verified = true;
+          verifyError = null;
+          break;
+        } else if (error) {
+          verifyError = error;
+        }
+      } catch (err) {
+        verifyError = err;
+      }
+    }
+
     setLoading(false);
 
-    if (error) {
-      Alert.alert("Verification Failed", error.message || "Invalid or expired 6-digit code.");
+    if (!verified && verifyError) {
+      Alert.alert(
+        "Verification Failed",
+        `${verifyError.message || "Invalid or expired 6-digit code."}\n\nTip: If you tapped 'Send Code' multiple times, only the newest code in your inbox will work.`
+      );
       return;
     }
 
@@ -107,12 +182,16 @@ export default function ForgotPassword() {
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       Alert.alert("Update Failed", error.message);
       return;
     }
+
+    // Clean session after password reset
+    await supabase.auth.signOut();
+    setLoading(false);
 
     Alert.alert(
       "Password Reset Successful",
@@ -158,12 +237,12 @@ export default function ForgotPassword() {
           <View style={styles.header}>
             <Text style={styles.title}>
               {step === 1 && "Forgot Password"}
-              {step === 2 && "Enter 6-Digit Code"}
+              {step === 2 && "Enter Verification Code"}
               {step === 3 && "Create New Password"}
             </Text>
             <Text style={styles.instructions}>
               {step === 1 && "Enter your registered Gmail to receive a password reset code."}
-              {step === 2 && `Enter the 6-digit numeric code sent to ${email}`}
+              {step === 2 && `Enter the verification code sent to ${email}`}
               {step === 3 && "Enter your new password below."}
             </Text>
           </View>
@@ -215,15 +294,15 @@ export default function ForgotPassword() {
           
             {step === 2 && (
               <>
-                <Text style={styles.label}>6-Digit Verification Code</Text>
+                <Text style={styles.label}>Verification Code</Text>
                 <View style={styles.inputBox}>
                   <Ionicons name="keypad-outline" size={20} color={COLORS.muted} style={styles.leadingIcon} />
                   <TextInput
                     style={[styles.input, styles.otpInput]}
-                    placeholder="123456"
+                    placeholder="12345678"
                     placeholderTextColor="#A0AEC0"
                     keyboardType="number-pad"
-                    maxLength={6}
+                    maxLength={8}
                     value={otpCode}
                     onChangeText={setOtpCode}
                   />
@@ -232,9 +311,18 @@ export default function ForgotPassword() {
                 <TouchableOpacity
                   style={styles.resendRow}
                   onPress={handleSendOtp}
-                  disabled={loading}
+                  disabled={loading || resendCountdown > 0}
                 >
-                  <Text style={styles.resendText}>Didn’t get the code? Resend</Text>
+                  <Text
+                    style={[
+                      styles.resendText,
+                      resendCountdown > 0 && { color: COLORS.muted },
+                    ]}
+                  >
+                    {resendCountdown > 0
+                      ? `Resend code in ${resendCountdown}s`
+                      : "Didn’t get the code? Resend"}
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -364,7 +452,7 @@ const styles = StyleSheet.create({
   },
   leadingIcon: { marginRight: 10 },
   input: { flex: 1, height: "100%", fontSize: 15, color: COLORS.text },
-  otpInput: { fontSize: 22, letterSpacing: 8, fontWeight: "700" },
+  otpInput: { fontSize: 18, letterSpacing: 5, fontWeight: "700" },
   resendRow: { alignSelf: "flex-end", marginTop: 4, marginBottom: 14 },
   resendText: { color: COLORS.primary, fontSize: 13, fontWeight: "600" },
   primaryBtn: {

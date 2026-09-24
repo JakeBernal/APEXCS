@@ -62,15 +62,6 @@ const MONTH_NAMES = [
 ];
 const DAY_NAMES = ["S", "M", "T", "W", "T", "F", "S"];
 
-function getReadinessLevel(percent) {
-  if (!percent || percent === 0) return { label: "Not Started", color: PALETTE.muted, bg: "#F1F5F9" };
-  if (percent < 50) return { label: "Foundational", color: PALETTE.warning, bg: "#FEF7EE" };
-  if (percent < 75) return { label: "Intermediate", color: PALETTE.primary, bg: PALETTE.panelBlue };
-  if (percent < 80) return { label: "Near Passing", color: PALETTE.primary, bg: PALETTE.lightBlue };
-  if (percent < 90) return { label: "Proficient", color: PALETTE.success, bg: "#EAF9ED" };
-  return { label: "Mastery", color: PALETTE.successAlt, bg: "#EAF9ED" };
-}
-
 function getDaysRemaining(targetDate) {
   if (!targetDate) return null;
   const target = new Date(targetDate);
@@ -314,7 +305,6 @@ export default function Profile() {
   };
 
   const daysRemaining = getDaysRemaining(examDate);
-  const readiness = getReadinessLevel(summary.avgScore);
 
   const achievements = [];
   if (summary.examsTaken >= 1) {
@@ -473,54 +463,6 @@ export default function Profile() {
               />
             </View>
           )}
-
-          {/* ================= READINESS PROGRESS ================= */}
-          <View style={styles.card}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardTitle}>Exam Readiness</Text>
-              <View style={[styles.statusTag, { backgroundColor: readiness.bg }]}>
-                <Text style={[styles.statusTagText, { color: readiness.color }]}>
-                  {readiness.label}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBarBackground}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: `${Math.min(summary.avgScore, 100)}%`,
-                      backgroundColor: summary.avgScore >= 80 ? PALETTE.success : PALETTE.primary,
-                    },
-                  ]}
-                />
-              </View>
-              {/* Benchmark Indicator */}
-              <View style={styles.benchmarkMarker}>
-                <View style={styles.markerLine} />
-                <Text style={styles.markerLabel}>80% Pass</Text>
-              </View>
-            </View>
-
-            <View style={styles.readinessStatsRow}>
-              <View style={styles.subStat}>
-                <Text style={styles.subStatLabel}>Average Score</Text>
-                <Text style={styles.subStatValue}>{summary.avgScore}%</Text>
-              </View>
-              <View style={styles.verticalSep} />
-              <View style={styles.subStat}>
-                <Text style={styles.subStatLabel}>Last Attempt</Text>
-                <Text style={styles.subStatValue}>{summary.lastScore}%</Text>
-              </View>
-              <View style={styles.verticalSep} />
-              <View style={styles.subStat}>
-                <Text style={styles.subStatLabel}>Target Benchmark</Text>
-                <Text style={[styles.subStatValue, { color: PALETTE.navy }]}>80%</Text>
-              </View>
-            </View>
-          </View>
 
           {/* ================= MILESTONES ================= */}
           <View style={styles.card}>
