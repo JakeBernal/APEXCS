@@ -351,6 +351,9 @@ export default function ExamReview() {
           <TouchableOpacity
             style={[styles.filterPill, filter === "all" && styles.filterPillActive]}
             onPress={() => setFilter("all")}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: filter === "all" }}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
           >
             <Text
               style={[
@@ -368,6 +371,9 @@ export default function ExamReview() {
               filter === "wrong" && styles.filterPillWrongActive,
             ]}
             onPress={() => setFilter("wrong")}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: filter === "wrong" }}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
           >
             <Text
               style={[
@@ -385,6 +391,9 @@ export default function ExamReview() {
               filter === "correct" && styles.filterPillCorrectActive,
             ]}
             onPress={() => setFilter("correct")}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: filter === "correct" }}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
           >
             <Text
               style={[
@@ -403,6 +412,9 @@ export default function ExamReview() {
                 filter === "skipped" && styles.filterPillSkippedActive,
               ]}
               onPress={() => setFilter("skipped")}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: filter === "skipped" }}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             >
               <Text
                 style={[
