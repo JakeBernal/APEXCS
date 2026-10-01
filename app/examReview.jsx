@@ -6,9 +6,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 import { router, useLocalSearchParams } from "expo-router";
 import { getAttemptReviewDetails, PASS_THRESHOLD } from "../lib/attempts";
 
@@ -165,51 +168,113 @@ export default function ExamReview() {
             const isUserPick = item.selectedChoiceId === choice.id;
             const isChoiceCorrect = choice.id === item.correctChoiceId;
 
-            let rowStyle = styles.choiceRow;
-            let letterBg = "#F1F5F9";
-            let letterColor = "#475569";
-            let textColor = COLORS.text;
-            let badgeComponent = null;
+            if (isUserPick) {
+              return (
+                <LinearGradient
+                  key={choice.id || choiceIdx}
+                  colors={["#386BF6", "#152B65"]}
+                  start={{ x: 1, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.choiceGradientRow}
+                >
+                  <View
+                    style={[
+                      styles.choiceLetterCircle,
+                      styles.choiceLetterCircleGradient,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.choiceLetterText,
+                        styles.choiceLetterTextGradient,
+                      ]}
+                    >
+                      {letter}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.choiceText,
+                      styles.choiceTextGradient,
+                    ]}
+                  >
+                    {choice.choice_text}
+                  </Text>
+
+                  {isChoiceCorrect ? (
+                    <View style={styles.choiceCorrectBadge}>
+                      <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                      <Text style={styles.choiceBadgeText}>Your Answer (Correct)</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.choiceUserPickBadge}>
+                      <Ionicons name="close" size={12} color="#FFFFFF" />
+                      <Text style={styles.choiceBadgeText}>Your Answer</Text>
+                    </View>
+                  )}
+                </LinearGradient>
+              );
+            }
 
             if (isChoiceCorrect) {
-              // Correct Choice styling
-              rowStyle = [styles.choiceRow, styles.choiceCorrectRow];
-              letterBg = "#DCFCE7";
-              letterColor = COLORS.successText;
-              textColor = "#14532D";
-              badgeComponent = (
-                <View style={styles.choiceCorrectBadge}>
-                  <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-                  <Text style={styles.choiceBadgeText}>Correct</Text>
-                </View>
-              );
-            } else if (isUserPick && !isChoiceCorrect) {
-              // User's wrong pick styling
-              rowStyle = [styles.choiceRow, styles.choiceWrongRow];
-              letterBg = "#FEE2E2";
-              letterColor = COLORS.dangerText;
-              textColor = "#7F1D1D";
-              badgeComponent = (
-                <View style={styles.choiceWrongBadge}>
-                  <Ionicons name="close" size={12} color="#FFFFFF" />
-                  <Text style={styles.choiceBadgeText}>Your Answer</Text>
+              return (
+                <View
+                  key={choice.id || choiceIdx}
+                  style={[styles.choiceRow, styles.choiceCorrectRow]}
+                >
+                  <View
+                    style={[
+                      styles.choiceLetterCircle,
+                      { backgroundColor: "#DCFCE7" },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.choiceLetterText,
+                        { color: COLORS.successText },
+                      ]}
+                    >
+                      {letter}
+                    </Text>
+                  </View>
+
+                  <Text style={[styles.choiceText, { color: "#14532D" }]}>
+                    {choice.choice_text}
+                  </Text>
+
+                  <View style={styles.choiceCorrectBadge}>
+                    <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                    <Text style={styles.choiceBadgeText}>Correct</Text>
+                  </View>
                 </View>
               );
             }
 
             return (
-              <View key={choice.id || choiceIdx} style={rowStyle}>
-                <View style={[styles.choiceLetterCircle, { backgroundColor: letterBg }]}>
-                  <Text style={[styles.choiceLetterText, { color: letterColor }]}>
+              <View
+                key={choice.id || choiceIdx}
+                style={styles.choiceRow}
+              >
+                <View
+                  style={[
+                    styles.choiceLetterCircle,
+                    { backgroundColor: "#F1F5F9" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.choiceLetterText,
+                      { color: "#475569" },
+                    ]}
+                  >
                     {letter}
                   </Text>
                 </View>
 
-                <Text style={[styles.choiceText, { color: textColor }]}>
+                <Text style={[styles.choiceText, { color: COLORS.text }]}>
                   {choice.choice_text}
                 </Text>
-
-                {badgeComponent}
               </View>
             );
           })}
@@ -230,47 +295,57 @@ export default function ExamReview() {
   };
 
   return (
-    <SafeAreaView style={styles.safeContainer} edges={["top", "bottom"]}>
-      {/* ================= TOP HEADER ================= */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Go back to History"
-        >
-          <Ionicons name="chevron-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-
-        <View style={styles.headerMeta}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={styles.headerSubtitle} numberOfLines={1}>
-            {levelLabel} • Exam Review
-          </Text>
-        </View>
-
-        {attempt ? (
-          <View
-            style={[
-              styles.scorePill,
-              { backgroundColor: isPassed ? "#E1F7E6" : "#FDE0E0" },
-            ]}
+    <View style={styles.rootContainer}>
+      <StatusBar style="dark" backgroundColor="#FFFFFF" />
+      <SafeAreaView style={styles.topSafeArea} edges={["top"]}>
+        {/* ================= TOP HEADER ================= */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back to History"
           >
-            <Text
-              style={[
-                styles.scorePillText,
-                { color: isPassed ? "#2FA84F" : "#D44A4A" },
-              ]}
-            >
-              {score}%
+            <Ionicons name="chevron-back" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+
+          <View style={styles.headerMeta}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {title}
+            </Text>
+            <Text style={styles.headerSubtitle} numberOfLines={1}>
+              {levelLabel} • Exam Review
             </Text>
           </View>
-        ) : null}
-      </View>
 
-      {/* ================= FILTER PILLS BAR ================= */}
+          {attempt ? (
+            <View
+              style={[
+                styles.scorePill,
+                { backgroundColor: isPassed ? "#E1F7E6" : "#FDE0E0" },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.scorePillText,
+                  { color: isPassed ? "#2FA84F" : "#D44A4A" },
+                ]}
+              >
+                {score}%
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </SafeAreaView>
+
+      <LinearGradient
+        colors={["#386BF6", "#152B65"]}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientBg}
+      >
+        <SafeAreaView style={styles.bottomSafeArea} edges={["bottom"]}>
+          {/* ================= FILTER PILLS BAR ================= */}
       {!loading && !error && questions.length > 0 ? (
         <View style={styles.filterBar}>
           <TouchableOpacity
@@ -357,13 +432,105 @@ export default function ExamReview() {
           </TouchableOpacity>
         </View>
       ) : questions.length === 0 ? (
-        <View style={styles.centerState}>
-          <Ionicons name="document-text-outline" size={48} color={COLORS.muted} />
-          <Text style={styles.emptyTitle}>No Answer Details Found</Text>
-          <Text style={styles.emptySubtitle}>
-            Detailed question logs were not recorded for this exam session.
-          </Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.legacyScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.legacyCard}>
+            <View style={styles.legacyHeader}>
+              <Ionicons name="stats-chart" size={32} color={COLORS.primary} />
+              <Text style={styles.legacyTitle}>Exam Session Summary</Text>
+              <Text style={styles.legacySubtitle}>
+                {title} • {levelLabel}
+              </Text>
+            </View>
+
+            <View style={styles.legacyScoreBox}>
+              <Text
+                style={[
+                  styles.legacyBigScore,
+                  { color: isPassed ? COLORS.success : COLORS.danger },
+                ]}
+              >
+                {score}%
+              </Text>
+              <Text style={styles.legacyScoreLabel}>
+                {isPassed ? "Passed Standard" : "Did Not Meet Standard"}
+              </Text>
+            </View>
+
+            <View style={styles.legacyStatsGrid}>
+              <View style={styles.legacyStatBox}>
+                <Text style={styles.legacyStatValue}>
+                  {attempt?.total_questions ?? 0}
+                </Text>
+                <Text style={styles.legacyStatName}>Total Items</Text>
+              </View>
+              <View style={styles.legacyStatBox}>
+                <Text
+                  style={[styles.legacyStatValue, { color: COLORS.success }]}
+                >
+                  {attempt?.correct_count ?? 0}
+                </Text>
+                <Text style={styles.legacyStatName}>Correct</Text>
+              </View>
+              <View style={styles.legacyStatBox}>
+                <Text
+                  style={[styles.legacyStatValue, { color: COLORS.danger }]}
+                >
+                  {attempt?.wrong_count ?? 0}
+                </Text>
+                <Text style={styles.legacyStatName}>Incorrect</Text>
+              </View>
+              <View style={styles.legacyStatBox}>
+                <Text
+                  style={[styles.legacyStatValue, { color: COLORS.warning }]}
+                >
+                  {attempt?.skipped_count ?? 0}
+                </Text>
+                <Text style={styles.legacyStatName}>Skipped</Text>
+              </View>
+            </View>
+
+            {Array.isArray(attempt?.subject_breakdown) &&
+              attempt.subject_breakdown.length > 0 && (
+                <View style={styles.legacyBreakdownSection}>
+                  <Text style={styles.legacyBreakdownTitle}>
+                    Subject Breakdown
+                  </Text>
+                  {attempt.subject_breakdown.map((item, bIdx) => (
+                    <View key={bIdx} style={styles.legacyBreakdownRow}>
+                      <Text
+                        style={styles.legacyBreakdownSubject}
+                        numberOfLines={1}
+                      >
+                        {item.title}
+                      </Text>
+                      <Text style={styles.legacyBreakdownRatio}>
+                        {item.correct ?? 0}/{item.total ?? 0} (
+                        {Math.round(
+                          ((item.correct ?? 0) / (item.total || 1)) * 100
+                        )}
+                        %)
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+            <View style={styles.legacyNotice}>
+              <Ionicons
+                name="information-circle-outline"
+                size={18}
+                color={COLORS.muted}
+              />
+              <Text style={styles.legacyNoticeText}>
+                Per-question choice logs were not saved for this older session. Full
+                question-by-question review is active for newly completed exams.
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
       ) : filteredQuestions.length === 0 ? (
         <View style={styles.centerState}>
           <Ionicons name="checkmark-done-circle-outline" size={48} color={COLORS.success} />
@@ -388,15 +555,29 @@ export default function ExamReview() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
-      )}
-    </SafeAreaView>
+        )}
+        </SafeAreaView>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeContainer: {
+  rootContainer: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: "#FFFFFF",
+  },
+
+  topSafeArea: {
+    backgroundColor: "#FFFFFF",
+  },
+
+  gradientBg: {
+    flex: 1,
+  },
+
+  bottomSafeArea: {
+    flex: 1,
   },
 
   /* HEADER */
@@ -407,7 +588,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: "#EEF1F5",
   },
 
   backButton: {
@@ -450,11 +631,11 @@ const styles = StyleSheet.create({
   /* FILTER BAR */
   filterBar: {
     flexDirection: "row",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "transparent",
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: "rgba(255, 255, 255, 0.12)",
     gap: 8,
   },
 
@@ -462,45 +643,59 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: "#F1F5F9",
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
 
   filterPillActive: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "transparent",
+    borderColor: "#FFFFFF",
+    borderWidth: 1.5,
   },
 
   filterPillWrongActive: {
-    backgroundColor: COLORS.danger,
+    backgroundColor: "transparent",
+    borderColor: "#EF4444",
+    borderWidth: 1.5,
   },
 
   filterPillCorrectActive: {
-    backgroundColor: COLORS.success,
+    backgroundColor: "transparent",
+    borderColor: "#22C55E",
+    borderWidth: 1.5,
   },
 
   filterPillSkippedActive: {
-    backgroundColor: COLORS.warning,
+    backgroundColor: "transparent",
+    borderColor: "#F59E0B",
+    borderWidth: 1.5,
   },
 
   filterPillText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#64748B",
+    color: "rgba(255, 255, 255, 0.75)",
   },
 
   filterPillTextActive: {
     color: "#FFFFFF",
+    fontWeight: "800",
   },
 
   filterPillWrongTextActive: {
-    color: "#FFFFFF",
+    color: "#FCA5A5",
+    fontWeight: "800",
   },
 
   filterPillCorrectTextActive: {
-    color: "#FFFFFF",
+    color: "#86EFAC",
+    fontWeight: "800",
   },
 
   filterPillSkippedTextActive: {
-    color: "#FFFFFF",
+    color: "#FDE68A",
+    fontWeight: "800",
   },
 
   /* QUESTION LIST */
@@ -514,13 +709,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
     shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
 
   cardHeaderRow: {
@@ -649,6 +842,40 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
+  choiceGradientRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+
+  choiceLetterCircleGradient: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+
+  choiceLetterTextGradient: {
+    color: "#FFFFFF",
+  },
+
+  choiceTextGradient: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+
+  choiceUserPickBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.22)",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 3,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.35)",
+  },
+
   choiceBadgeText: {
     color: "#FFFFFF",
     fontSize: 10,
@@ -697,43 +924,168 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: COLORS.muted,
+    color: "#DCE6FF",
   },
 
   errorText: {
     marginTop: 12,
     fontSize: 14,
-    color: COLORS.danger,
+    color: "#FCA5A5",
     textAlign: "center",
   },
 
   retryButton: {
     marginTop: 16,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,
   },
 
   retryButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
+    color: "#152B65",
+    fontWeight: "700",
     fontSize: 14,
   },
 
   emptyTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: COLORS.text,
+    color: "#FFFFFF",
     marginTop: 12,
     textAlign: "center",
   },
 
   emptySubtitle: {
     fontSize: 13,
-    color: COLORS.muted,
+    color: "#DCE6FF",
     marginTop: 6,
     textAlign: "center",
     lineHeight: 18,
+  },
+
+  /* LEGACY ATTEMPT SUMMARY STYLES */
+  legacyScrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  legacyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#EEF1F5",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  legacyHeader: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  legacyTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.text,
+    marginTop: 8,
+  },
+  legacySubtitle: {
+    fontSize: 13,
+    color: COLORS.muted,
+    marginTop: 4,
+    fontWeight: "500",
+  },
+  legacyScoreBox: {
+    backgroundColor: "#F8FAFD",
+    borderRadius: 12,
+    paddingVertical: 18,
+    alignItems: "center",
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  legacyBigScore: {
+    fontSize: 44,
+    fontWeight: "900",
+    letterSpacing: -1,
+  },
+  legacyScoreLabel: {
+    fontSize: 13,
+    color: COLORS.muted,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  legacyStatsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    gap: 8,
+  },
+  legacyStatBox: {
+    flex: 1,
+    backgroundColor: "#F8FAFD",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#EEF1F5",
+  },
+  legacyStatValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.text,
+  },
+  legacyStatName: {
+    fontSize: 11,
+    color: COLORS.muted,
+    marginTop: 2,
+    fontWeight: "600",
+  },
+  legacyBreakdownSection: {
+    borderTopWidth: 1,
+    borderTopColor: "#EEF1F5",
+    paddingTop: 16,
+    marginBottom: 16,
+  },
+  legacyBreakdownTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginBottom: 10,
+  },
+  legacyBreakdownRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  legacyBreakdownSubject: {
+    fontSize: 13,
+    color: "#334155",
+    fontWeight: "500",
+    flex: 1,
+    marginRight: 10,
+  },
+  legacyBreakdownRatio: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  legacyNotice: {
+    flexDirection: "row",
+    backgroundColor: "#F1F5F9",
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "flex-start",
+    gap: 8,
+    marginTop: 8,
+  },
+  legacyNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#64748B",
+    lineHeight: 17,
   },
 });

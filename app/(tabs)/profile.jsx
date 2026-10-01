@@ -33,6 +33,7 @@ import {
   getStudyReminders,
   saveStudyReminders,
   getTodayQuestionsProgress,
+  sendImmediateTestNotification,
 } from "../../lib/remindersHelper";
 
 /* =========================================================================
@@ -210,6 +211,7 @@ export default function Profile() {
     bestScore: 0,
     lastScore: 0,
     avgScore: 0,
+    practiceTime: "0 min",
   });
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -235,6 +237,7 @@ export default function Profile() {
               bestScore: 0,
               lastScore: 0,
               avgScore: 0,
+              practiceTime: "0 min",
             }
           );
           setStreak(streakData || 0);
@@ -264,15 +267,19 @@ export default function Profile() {
   };
 
   const handleSaveReminders = async (newSettings) => {
-    setReminderSettings(newSettings);
-    setReminderModalVisible(false);
-    if (user?.id) {
-      await saveStudyReminders(user.id, newSettings);
-      const updatedProg = await getTodayQuestionsProgress(
-        user.id,
-        newSettings.goalQuestions
-      );
-      if (updatedProg) setDailyProgress(updatedProg);
+    try {
+      setReminderSettings(newSettings);
+      setReminderModalVisible(false);
+      if (user?.id) {
+        await saveStudyReminders(user.id, newSettings);
+        const updatedProg = await getTodayQuestionsProgress(
+          user.id,
+          newSettings.goalQuestions
+        );
+        if (updatedProg) setDailyProgress(updatedProg);
+      }
+    } catch (err) {
+      console.warn("Failed to save study reminders:", err);
     }
   };
 
@@ -305,43 +312,6 @@ export default function Profile() {
   };
 
   const daysRemaining = getDaysRemaining(examDate);
-
-  const achievements = [];
-  if (summary.examsTaken >= 1) {
-    achievements.push({
-      icon: "trophy",
-      color: PALETTE.warning,
-      bg: "#FEF7EE",
-      title: "First Mock Exam Completed",
-      sub: "Took the first step toward the license",
-    });
-  }
-  if (streak >= 2) {
-    achievements.push({
-      icon: "flame",
-      color: "#EA580C",
-      bg: "#FFF3EB",
-      title: `${streak}-Day Study Streak`,
-      sub: "Consistent preparation underway",
-    });
-  }
-  if (summary.bestScore >= 80) {
-    achievements.push({
-      icon: "checkmark-circle",
-      color: PALETTE.success,
-      bg: "#EAF9ED",
-      title: "Passed Benchmark (80%+)",
-      sub: `Current high score is ${summary.bestScore}%`,
-    });
-  } else if (summary.bestScore > 0) {
-    achievements.push({
-      icon: "star",
-      color: PALETTE.primary,
-      bg: PALETTE.panelBlue,
-      title: `Personal Record: ${summary.bestScore}%`,
-      sub: "Keep reviewing to reach 80%",
-    });
-  }
 
   return (
     <View style={styles.container}>
@@ -455,46 +425,14 @@ export default function Profile() {
                 value={`${streak} Days`}
               />
               <MetricBox
-                icon="pie-chart-outline"
-                iconColor={PALETTE.navy}
-                iconBg={PALETTE.panelBlue}
-                label="Average"
-                value={`${summary.avgScore}%`}
+                icon="time-outline"
+                iconColor="#8B5CF6"
+                iconBg="#F3E8FF"
+                label="Practice Time"
+                value={summary.practiceTime || "0 min"}
               />
             </View>
           )}
-
-          {/* ================= MILESTONES ================= */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Milestones & Badges</Text>
-
-            {achievements.length === 0 ? (
-              <View style={styles.emptyMilestones}>
-                <Ionicons name="ribbon-outline" size={30} color={PALETTE.muted} />
-                <Text style={styles.emptyMilestoneText}>
-                  Take your first practice exam to unlock achievements.
-                </Text>
-              </View>
-            ) : (
-              achievements.map((item, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.milestoneItem,
-                    index === achievements.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                >
-                  <View style={[styles.milestoneIconWrap, { backgroundColor: item.bg }]}>
-                    <Ionicons name={item.icon} size={20} color={item.color} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.milestoneTitle}>{item.title}</Text>
-                    <Text style={styles.milestoneSub}>{item.sub}</Text>
-                  </View>
-                </View>
-              ))
-            )}
-          </View>
 
           {/* ================= ACCOUNT PREFERENCES ================= */}
           <View style={styles.card}>
@@ -665,6 +603,40 @@ function StudyRemindersModal({
   const [minute, setMinute] = useState(initialSettings?.minute || 0);
   const [period, setPeriod] = useState(initialSettings?.period || "PM");
   const [goal, setGoal] = useState(initialSettings?.goalQuestions || 20);
+  const [sendingTest, setSendingTest] = useState(false);
+
+  const handleTestNotification = async () => {
+    setSendingTest(true);
+    try {
+      const res = await sendImmediateTestNotification(goal);
+      if (res?.success) {
+        Alert.alert(
+          "Notification Sent! 🎯",
+          "Check your notification bar or lock screen. A live test study reminder has been delivered to your phone."
+        );
+      } else if (res?.reason === "permission_denied") {
+        Alert.alert(
+          "Permission Required",
+          "Please enable notification permissions in your phone's system settings to receive daily study alerts."
+        );
+      } else if (res?.reason === "unsupported") {
+        Alert.alert(
+          "Notice",
+          "Local notifications are not supported in this preview environment. Your study schedule is saved in your account."
+        );
+      } else {
+        Alert.alert(
+          "Notice",
+          "Unable to trigger notification on this device. Please check phone notification settings."
+        );
+      }
+    } catch (err) {
+      console.warn("handleTestNotification catch:", err);
+      Alert.alert("Notice", "Unable to trigger notification.");
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   useEffect(() => {
     if (visible && initialSettings) {
@@ -801,6 +773,29 @@ function StudyRemindersModal({
                 thumbColor="#FFFFFF"
               />
             </View>
+
+            {/* Test Notification Action */}
+            {enabled && (
+              <TouchableOpacity
+                style={reminderStyles.testNotificationBtn}
+                onPress={handleTestNotification}
+                disabled={sendingTest}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Send test notification to phone"
+              >
+                <Ionicons
+                  name={sendingTest ? "hourglass-outline" : "paper-plane-outline"}
+                  size={16}
+                  color={PALETTE.primary}
+                />
+                <Text style={reminderStyles.testNotificationBtnText}>
+                  {sendingTest
+                    ? "Dispatching Test..."
+                    : "Send Test Notification to Phone"}
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {enabled && (
               <>
@@ -1374,43 +1369,6 @@ const styles = StyleSheet.create({
     backgroundColor: PALETTE.border,
   },
 
-  /* Milestones */
-  emptyMilestones: {
-    alignItems: "center",
-    paddingVertical: 14,
-  },
-  emptyMilestoneText: {
-    fontSize: 12,
-    color: PALETTE.muted,
-    textAlign: "center",
-    marginTop: 6,
-  },
-  milestoneItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: PALETTE.border,
-  },
-  milestoneIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  milestoneTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: PALETTE.text,
-  },
-  milestoneSub: {
-    fontSize: 12,
-    color: PALETTE.muted,
-    marginTop: 2,
-    fontWeight: "500",
-  },
-
   /* Setting Rows */
   settingRow: {
     flexDirection: "row",
@@ -1784,6 +1742,25 @@ const reminderStyles = StyleSheet.create({
     fontSize: 12,
     color: "#7D8FB3",
     marginTop: 2,
+  },
+  testNotificationBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#EEF3FF",
+    borderWidth: 1,
+    borderColor: "#DDE7FF",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    minHeight: 46,
+  },
+  testNotificationBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#386BF6",
   },
   section: {
     marginBottom: 16,

@@ -7,7 +7,6 @@
     "icon": "./assets/apex-icon2.png",
     "scheme": "apex",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
@@ -17,7 +16,6 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.anonymous.apex",
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -28,9 +26,26 @@
       "expo-router",
       "expo-font",
       "expo-image",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/apex-icon2.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/apex-icon2.png",
+          "color": "#386BF6"
+        }
+      ],
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-audio",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

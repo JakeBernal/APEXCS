@@ -74,7 +74,15 @@ export default function GetStarted() {
         
         {/* TOP BAR */}
         <View style={styles.topBar}>
-          <Text style={styles.skip}>Skip</Text>
+          <TouchableOpacity
+            onPress={() => router.push("/login")}
+            activeOpacity={0.7}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+            accessibilityRole="button"
+            accessibilityLabel="Skip to login"
+          >
+            <Text style={styles.skip}>Skip</Text>
+          </TouchableOpacity>
         </View>
 
       {/* FIXED LOGO */}

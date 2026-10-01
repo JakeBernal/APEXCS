@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -40,6 +40,10 @@ const COLORS = {
 export default function Register() {
   const { signUp } = useAuth();
 
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const confirmRef = useRef(null);
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,6 +54,11 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  // Live password validation
+  const hasMinLength = password.length >= 6;
+  const hasNumber = /\d/.test(password);
+  const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
+
   // Input focus highlights
   const [isNameFocused, setIsNameFocused] = useState(false);
   const [isEmailFocused, setIsEmailFocused] = useState(false);
@@ -59,7 +68,7 @@ export default function Register() {
   /* ================= REGISTRATION HANDLER ================= */
   const handleRegister = async () => {
     const cleanName = fullName.trim();
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanName || !cleanEmail || !password || !confirmPassword) {
       Alert.alert("Missing Information", "Please fill in all required fields.");
@@ -209,8 +218,20 @@ export default function Register() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
+          {/* TOP BACK BUTTON */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="chevron-back" size={24} color={COLORS.navy} />
+          </TouchableOpacity>
+
           {/* ORIGINAL LOGO (UNTOUCHED) */}
           <View style={styles.logoWrapper}>
             <Text style={styles.apex}>APEX</Text>
@@ -239,6 +260,12 @@ export default function Register() {
                 placeholder="Juan Dela Cruz"
                 placeholderTextColor="#A0AEC0"
                 autoCapitalize="words"
+                autoCorrect={false}
+                autoComplete="name"
+                textContentType="name"
+                returnKeyType="next"
+                onSubmitEditing={() => emailRef.current?.focus()}
+                editable={!loading && !googleLoading}
                 value={fullName}
                 onChangeText={setFullName}
                 onFocus={() => setIsNameFocused(true)}
@@ -256,12 +283,18 @@ export default function Register() {
                 style={styles.leadingIcon}
               />
               <TextInput
+                ref={emailRef}
                 style={styles.input}
                 placeholder="name@gmail.com"
                 placeholderTextColor="#A0AEC0"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                editable={!loading && !googleLoading}
                 value={email}
                 onChangeText={setEmail}
                 onFocus={() => setIsEmailFocused(true)}
@@ -270,7 +303,7 @@ export default function Register() {
             </View>
 
             {/* PASSWORD */}
-            <Text style={styles.label}>Password (min. 6 chars & 1 number)</Text>
+            <Text style={styles.label}>Password</Text>
             <View style={[styles.inputBox, isPasswordFocused && styles.inputBoxFocused]}>
               <Ionicons
                 name="lock-closed-outline"
@@ -279,10 +312,18 @@ export default function Register() {
                 style={styles.leadingIcon}
               />
               <TextInput
+                ref={passwordRef}
                 style={styles.input}
                 placeholder="Create password"
                 placeholderTextColor="#A0AEC0"
                 secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="new-password"
+                textContentType="newPassword"
+                returnKeyType="next"
+                onSubmitEditing={() => confirmRef.current?.focus()}
+                editable={!loading && !googleLoading}
                 value={password}
                 onChangeText={setPassword}
                 onFocus={() => setIsPasswordFocused(true)}
@@ -301,6 +342,32 @@ export default function Register() {
               </TouchableOpacity>
             </View>
 
+            {/* REAL-TIME PASSWORD CRITERIA PILLS */}
+            {password.length > 0 && (
+              <View style={styles.criteriaContainer}>
+                <View style={styles.criteriaItem}>
+                  <Ionicons
+                    name={hasMinLength ? "checkmark-circle" : "ellipse-outline"}
+                    size={14}
+                    color={hasMinLength ? "#10B981" : COLORS.muted}
+                  />
+                  <Text style={[styles.criteriaText, hasMinLength && styles.criteriaTextValid]}>
+                    6+ characters
+                  </Text>
+                </View>
+                <View style={styles.criteriaItem}>
+                  <Ionicons
+                    name={hasNumber ? "checkmark-circle" : "ellipse-outline"}
+                    size={14}
+                    color={hasNumber ? "#10B981" : COLORS.muted}
+                  />
+                  <Text style={[styles.criteriaText, hasNumber && styles.criteriaTextValid]}>
+                    At least 1 number
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* CONFIRM PASSWORD */}
             <Text style={styles.label}>Confirm Password</Text>
             <View style={[styles.inputBox, isConfirmFocused && styles.inputBoxFocused]}>
@@ -311,10 +378,18 @@ export default function Register() {
                 style={styles.leadingIcon}
               />
               <TextInput
+                ref={confirmRef}
                 style={styles.input}
                 placeholder="Repeat password"
                 placeholderTextColor="#A0AEC0"
                 secureTextEntry={!showConfirm}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="new-password"
+                textContentType="newPassword"
+                returnKeyType="done"
+                onSubmitEditing={handleRegister}
+                editable={!loading && !googleLoading}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 onFocus={() => setIsConfirmFocused(true)}
@@ -333,31 +408,61 @@ export default function Register() {
               </TouchableOpacity>
             </View>
 
-            {/* TERMS & CONDITIONS CHECKBOX */}
-            <View style={styles.termsRow}>
-              <TouchableOpacity
-                style={[styles.checkbox, agree && styles.checkboxActive]}
-                onPress={() => setAgree(!agree)}
-                activeOpacity={0.8}
-              >
+            {/* CONFIRM MATCH HINT */}
+            {confirmPassword.length > 0 && (
+              <View style={styles.criteriaContainer}>
+                <View style={styles.criteriaItem}>
+                  <Ionicons
+                    name={passwordsMatch ? "checkmark-circle" : "close-circle"}
+                    size={14}
+                    color={passwordsMatch ? "#10B981" : "#EF4444"}
+                  />
+                  <Text
+                    style={[
+                      styles.criteriaText,
+                      passwordsMatch ? styles.criteriaTextValid : styles.criteriaTextInvalid,
+                    ]}
+                  >
+                    {passwordsMatch ? "Passwords match" : "Passwords do not match"}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* TERMS & CONDITIONS ROW (FULL TOUCHABLE TARGET) */}
+            <TouchableOpacity
+              style={styles.termsRow}
+              onPress={() => setAgree(!agree)}
+              activeOpacity={0.7}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: agree }}
+              accessibilityLabel="I agree to the Terms and Conditions"
+            >
+              <View style={[styles.checkbox, agree && styles.checkboxActive]}>
                 {agree && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
-              </TouchableOpacity>
+              </View>
 
               <Text style={styles.termsText}>
                 I agree to the{" "}
-                <Text style={styles.termsLink} onPress={() => router.push("/term")}>
+                <Text
+                  style={styles.termsLink}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    router.push("/term");
+                  }}
+                >
                   Terms & Conditions
                 </Text>
               </Text>
-            </View>
+            </TouchableOpacity>
 
             {/* REGISTER BUTTON */}
             <TouchableOpacity
               style={[
                 styles.primaryBtn,
-                (!agree || loading) && { opacity: 0.6 },
+                (loading || googleLoading) && { opacity: 0.7 },
               ]}
-              disabled={!agree || loading}
+              disabled={loading || googleLoading}
               onPress={handleRegister}
               activeOpacity={0.8}
             >
@@ -414,9 +519,19 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 28,
-    paddingTop: 36,
+    paddingTop: 16,
     paddingBottom: 40,
     alignItems: "center",
+  },
+  backButton: {
+    alignSelf: "flex-start",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#F4F6FA",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
   },
   logoWrapper: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
   apex: { fontSize: 38, fontWeight: "900", color: "#14143A", letterSpacing: 3 },
@@ -425,7 +540,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: "800", color: "#1F1F5A" },
   instructions: { fontSize: 14, color: COLORS.muted, marginTop: 4 },
   form: { width: "100%" },
-  label: { fontSize: 13, fontWeight: "600", color: "#1F1F5A", marginBottom: 6, marginTop: 8 },
+  label: { fontSize: 13, fontWeight: "600", color: "#1F1F5A", marginBottom: 6, marginTop: 10 },
   inputBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -441,7 +556,40 @@ const styles = StyleSheet.create({
   leadingIcon: { marginRight: 10 },
   input: { flex: 1, height: "100%", fontSize: 15, color: COLORS.text },
   trailingIcon: { padding: 4 },
-  termsRow: { flexDirection: "row", alignItems: "center", marginTop: 12, marginBottom: 18 },
+  criteriaContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 2,
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
+  criteriaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  criteriaText: {
+    fontSize: 12,
+    color: COLORS.muted,
+    fontWeight: "500",
+  },
+  criteriaTextValid: {
+    color: "#059669",
+    fontWeight: "600",
+  },
+  criteriaTextInvalid: {
+    color: "#DC2626",
+    fontWeight: "600",
+  },
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 44,
+    marginTop: 8,
+    marginBottom: 16,
+  },
   checkbox: {
     width: 22,
     height: 22,
@@ -457,7 +605,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
-  termsText: { color: COLORS.text, fontSize: 13 },
+  termsText: { color: COLORS.text, fontSize: 13, flexShrink: 1 },
   termsLink: { color: COLORS.primary, fontWeight: "700", textDecorationLine: "underline" },
   primaryBtn: {
     backgroundColor: COLORS.primary,

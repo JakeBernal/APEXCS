@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 
 import {
   View,
@@ -44,6 +44,8 @@ const COLORS = {
 export default function Login() {
   const { signIn } = useAuth();
 
+  const passwordInputRef = useRef(null);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -67,7 +69,7 @@ export default function Login() {
   // ==========================================
 
   const handleLogin = async () => {
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail || !password) {
       Alert.alert(
@@ -268,8 +270,20 @@ export default function Login() {
             styles.scrollContent
           }
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
+          {/* TOP BACK BUTTON */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="chevron-back" size={24} color={COLORS.navy} />
+          </TouchableOpacity>
+
           {/* LOGO */}
 
           <View style={styles.logoWrapper}>
@@ -328,6 +342,16 @@ export default function Login() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="next"
+                onSubmitEditing={() =>
+                  passwordInputRef.current?.focus()
+                }
+                blurOnSubmit={false}
+                editable={
+                  !loading && !googleLoading
+                }
                 value={email}
                 onChangeText={setEmail}
                 onFocus={() =>
@@ -364,11 +388,21 @@ export default function Login() {
               />
 
               <TextInput
+                ref={passwordInputRef}
                 style={styles.input}
                 placeholder="Enter your password"
                 placeholderTextColor="#A0AEC0"
                 secureTextEntry={
                   !showPassword
+                }
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="password"
+                textContentType="password"
+                returnKeyType="go"
+                onSubmitEditing={handleLogin}
+                editable={
+                  !loading && !googleLoading
                 }
                 value={password}
                 onChangeText={setPassword}
@@ -535,9 +569,20 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 28,
-    paddingTop: 36,
+    paddingTop: 16,
     paddingBottom: 40,
     alignItems: "center",
+  },
+
+  backButton: {
+    alignSelf: "flex-start",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#F4F6FA",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
   },
 
   logoWrapper: {

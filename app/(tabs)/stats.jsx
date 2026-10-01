@@ -162,24 +162,14 @@ export default function Stats() {
   // --------------------------------------------------
 
   /*
-   * Growth is hidden only when:
-   *
-   * Level     = All
-   * Category  = All Categories
-   *
-   * This prevents Professional and Sub-Professional
-   * growth values from being mixed together.
-   *
-   * Growth remains visible when:
-   * - Professional + All Categories
-   * - Sub-Professional + All Categories
-   * - Any level + specific category
+   * Growth and Vs Prev are hidden when Category = All Categories.
+   * Comparing scores across totally different subjects (e.g. 10-item General Info
+   * vs 170-item Mock Exam) produces false/misleading growth figures (e.g. -52%).
+   * Growth is only shown when a specific category is selected.
    */
 
-  const showGrowth = !(
-    filter === "all" &&
-    categoryFilter === "__all_categories__"
-  );
+  const showGrowth =
+    categoryFilter !== "__all_categories__";
 
   // --------------------------------------------------
   // GROUP HELPERS
@@ -1219,16 +1209,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingTop: 14,
-    marginTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#EEF1F5",
     gap: 4,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
   },
 
   reviewLinkText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#9a9b9c9d"
+    color: "#9a9b9c9d",
+    textAlign: "center",
   },
 });

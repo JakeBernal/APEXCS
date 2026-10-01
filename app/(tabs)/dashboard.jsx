@@ -28,6 +28,7 @@ import {
   getStudyReminders,
   isReminderDueToday,
   getTodayQuestionsProgress,
+  formatReminderSummary,
 } from "../../lib/remindersHelper";
 import {
   getAvatarSource,
@@ -61,10 +62,7 @@ const RADIUS = {
 
 const cards = [
   { id: "1", type: "progress" },
-  { id: "2", type: "schedule" },
 ];
-
-const EXAM_DATE = "2026-05-18T08:00:00";
 
 /*
  * Subjects are different between the two Civil Service
@@ -98,37 +96,6 @@ const SUBJECTS_BY_LEVEL = {
   ],
 };
 
-function getCountdown(targetDate) {
-  const now = new Date();
-  const diff = new Date(targetDate) - now;
-
-  if (diff <= 0) {
-    return {
-      days: 0,
-      hours: 0,
-      minutes: 0,
-    };
-  }
-
-  const days = Math.floor(
-    diff / (1000 * 60 * 60 * 24)
-  );
-
-  const hours = Math.floor(
-    (diff / (1000 * 60 * 60)) % 24
-  );
-
-  const minutes = Math.floor(
-    (diff / (1000 * 60)) % 60
-  );
-
-  return {
-    days,
-    hours,
-    minutes,
-  };
-}
-
 // Maps readiness percentage to a color band.
 function getReadinessColor(percent) {
   if (percent < 25) return "#EC6666";
@@ -142,9 +109,6 @@ export default function Dashboard() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const [countdown, setCountdown] = useState(
-    getCountdown(EXAM_DATE)
-  );
 
   // Professional / Sub-Professional selector
   const [selectedLevel, setSelectedLevel] = useState(
@@ -256,15 +220,6 @@ export default function Dashboard() {
       verifySession();
     }
   }, [loading, session]);
-
-  // Countdown timer.
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown(getCountdown(EXAM_DATE));
-    }, 60000);
-
-    return () => clearInterval(timer);
-  }, []);
 
   const onScroll = (e) => {
     const index = Math.round(
@@ -704,7 +659,7 @@ export default function Dashboard() {
                     />
                   </View>
                   <View style={{ marginLeft: 10 }}>
-                    <Text style={styles.taskTitle}>Today's Study Goal</Text>
+                    <Text style={styles.taskTitle}>Today&apos;s Study Goal</Text>
                     <Text style={styles.taskSubtitle}>
                       {reminderSettings.timeString} • Daily Practice
                     </Text>
@@ -1169,22 +1124,25 @@ export default function Dashboard() {
               />
             </TouchableOpacity>
 
-            {/* RESET PROGRESS */}
+            {/* TERMS & CONDITIONS */}
 
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={handleResetProgress}
+              onPress={() => {
+                setMenuVisible(false);
+                router.push("/term");
+              }}
             >
               <View style={styles.menuItemIcon}>
                 <Ionicons
-                  name="refresh-circle-outline"
+                  name="document-text-outline"
                   size={21}
-                  color="#FCA5A5"
+                  color="#B8CEFF"
                 />
               </View>
 
-              <Text style={[styles.menuItemText, { color: "#FCA5A5" }]}>
-                Reset Progress
+              <Text style={styles.menuItemText}>
+                Terms & Conditions
               </Text>
             </TouchableOpacity>
 
@@ -1243,7 +1201,7 @@ export default function Dashboard() {
       </Modal>
 
       {/* =====================================================
-          SETTINGS MODAL
+          SETTINGS & PREFERENCES MODAL
           ===================================================== */}
 
       <Modal
@@ -1263,106 +1221,169 @@ export default function Dashboard() {
             <View style={styles.settingsHeader}>
               <View style={styles.settingsHeaderTitleRow}>
                 <View style={styles.settingsIconPill}>
-                  <Ionicons name="settings-sharp" size={18} color={COLORS.primary} />
+                  <Ionicons name="options-outline" size={20} color={COLORS.primary} />
                 </View>
-                <Text style={styles.settingsTitle}>Settings</Text>
+                <View>
+                  <Text style={styles.settingsTitle}>Preferences</Text>
+                  <Text style={styles.settingsSubtitle}>Exam readiness & study settings</Text>
+                </View>
               </View>
 
               <TouchableOpacity
                 style={styles.settingsCloseBtn}
                 onPress={() => setSettingsModalVisible(false)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close settings"
               >
-                <Ionicons name="close" size={22} color={COLORS.muted} />
+                <Ionicons name="close" size={20} color={COLORS.muted} />
               </TouchableOpacity>
             </View>
 
-            {/* EXAMINEE PROFILE IDENTITY CARD */}
-            <TouchableOpacity
-              style={styles.settingsProfileCard}
-              onPress={() => {
-                setSettingsModalVisible(false);
-                router.push("/(tabs)/profile");
-              }}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="View profile or change avatar"
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 8 }}
             >
-              <Image
-                source={getAvatarSource(avatarId)}
-                style={styles.settingsAvatarImage}
-                contentFit="cover"
-              />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.settingsProfileName}>{displayName}</Text>
-                <Text style={styles.settingsProfileSub}>Civil Service Examinee • Change Avatar ›</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={COLORS.muted} />
-            </TouchableOpacity>
-
-            {/* TESTING & PROGRESS SECTION */}
-            <View style={styles.settingsSection}>
-              <Text style={styles.settingsSectionTitle}>
-                TESTING & MONITORING
-              </Text>
-
-              <View style={styles.settingsActionCard}>
-                <View style={styles.settingsActionTop}>
-                  <View style={styles.settingsResetIconBox}>
-                    <Ionicons name="refresh-outline" size={22} color="#EF4444" />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.settingsActionTitle}>
-                      Reset Exam Progress
-                    </Text>
-                    <Text style={styles.settingsActionDesc}>
-                      Wipes all attempt history, scores, and topic mastery. Ideal for testing calculations and formula verification.
-                    </Text>
-                  </View>
+              {/* EXAMINEE PROFILE IDENTITY CARD */}
+              <TouchableOpacity
+                style={styles.settingsProfileCard}
+                onPress={() => {
+                  setSettingsModalVisible(false);
+                  router.push("/(tabs)/profile");
+                }}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="View profile or change avatar"
+              >
+                <Image
+                  source={getAvatarSource(avatarId)}
+                  style={styles.settingsAvatarImage}
+                  contentFit="cover"
+                />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.settingsProfileName}>{displayName}</Text>
+                  <Text style={styles.settingsProfileSub}>
+                    {selectedLevelLabel} Examinee
+                  </Text>
                 </View>
+                <View style={styles.settingsAvatarChangeBadge}>
+                  <Text style={styles.settingsAvatarChangeText}>Edit</Text>
+                  <Ionicons name="chevron-forward" size={14} color={COLORS.primary} />
+                </View>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.settingsResetBtn}
-                  activeOpacity={0.8}
-                  onPress={handleResetProgress}
-                  disabled={resettingProgress}
-                >
-                  {resettingProgress ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.settingsResetBtnText}>
-                        Reset All Progress
+              {/* STUDY PREFERENCES GROUP */}
+              <View style={styles.settingsGroup}>
+                <Text style={styles.settingsGroupHeader}>STUDY PREFERENCES</Text>
+
+                <View style={styles.settingsGroupCard}>
+                  {/* STUDY REMINDERS ROW */}
+                  <TouchableOpacity
+                    style={styles.settingsRow}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setSettingsModalVisible(false);
+                      router.push("/(tabs)/profile");
+                    }}
+                  >
+                    <View style={[styles.settingsRowIcon, { backgroundColor: "#EEF3FF" }]}>
+                      <Ionicons name="notifications-outline" size={18} color={COLORS.primary} />
+                    </View>
+                    <View style={styles.settingsRowBody}>
+                      <Text style={styles.settingsRowTitle}>Study Reminders</Text>
+                      <Text style={styles.settingsRowDesc}>
+                        {reminderSettings?.enabled
+                          ? formatReminderSummary(reminderSettings)
+                          : "Disabled"}
                       </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
+                    </View>
+                    <View style={styles.settingsRowAction}>
+                      <View style={reminderSettings?.enabled ? styles.statusBadgeActive : styles.statusBadgeInactive}>
+                        <Text style={reminderSettings?.enabled ? styles.statusBadgeTextActive : styles.statusBadgeTextInactive}>
+                          {reminderSettings?.enabled ? "On" : "Off"}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={COLORS.muted} style={{ marginLeft: 6 }} />
+                    </View>
+                  </TouchableOpacity>
 
-            {/* APPLICATION INFO */}
-            <View style={styles.settingsSection}>
-              <Text style={styles.settingsSectionTitle}>
-                APPLICATION
-              </Text>
+                  <View style={styles.settingsRowDivider} />
 
-              <View style={styles.settingsInfoCard}>
-                <View style={styles.settingsInfoRow}>
-                  <Text style={styles.settingsInfoLabel}>Exam Standard</Text>
-                  <Text style={styles.settingsInfoValue}>2026 Civil Service</Text>
+                  {/* ACTIVE EXAM LEVEL ROW */}
+                  <View style={styles.settingsRow}>
+                    <View style={[styles.settingsRowIcon, { backgroundColor: "#F3E8FF" }]}>
+                      <Ionicons name="school-outline" size={18} color="#9333EA" />
+                    </View>
+                    <View style={styles.settingsRowBody}>
+                      <Text style={styles.settingsRowTitle}>Civil Service Level</Text>
+                      <Text style={styles.settingsRowDesc}>
+                        {selectedLevel === "sub" ? "165 Items (Sub-Prof)" : "170 Items (Professional)"}
+                      </Text>
+                    </View>
+                    <View style={styles.levelTag}>
+                      <Text style={styles.levelTagText}>{selectedLevelLabel}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.settingsRowDivider} />
+
+                  {/* AUDIO NARRATION (TTS) ROW */}
+                  <View style={styles.settingsRow}>
+                    <View style={[styles.settingsRowIcon, { backgroundColor: "#E0F2FE" }]}>
+                      <Ionicons name="volume-high-outline" size={18} color="#0284C7" />
+                    </View>
+                    <View style={styles.settingsRowBody}>
+                      <Text style={styles.settingsRowTitle}>Audio Question Reader</Text>
+                      <Text style={styles.settingsRowDesc}>Text-to-Speech dictation during exams</Text>
+                    </View>
+                    <View style={styles.statusBadgeActive}>
+                      <Text style={styles.statusBadgeTextActive}>Enabled</Text>
+                    </View>
+                  </View>
                 </View>
+              </View>
 
-                <View style={styles.settingsInfoDivider} />
+              {/* DATA MANAGEMENT GROUP (DISCREET NATIVE DANGER ROW) */}
+              <View style={styles.settingsGroup}>
+                <Text style={styles.settingsGroupHeader}>DATA & SLATE</Text>
 
-                <View style={styles.settingsInfoRow}>
-                  <Text style={styles.settingsInfoLabel}>Active Level</Text>
-                  <Text style={styles.settingsInfoValue}>{selectedLevelLabel}</Text>
+                <View style={styles.settingsGroupCard}>
+                  <TouchableOpacity
+                    style={styles.settingsRow}
+                    activeOpacity={0.7}
+                    onPress={handleResetProgress}
+                    disabled={resettingProgress}
+                  >
+                    <View style={[styles.settingsRowIcon, { backgroundColor: "#FEE2E2" }]}>
+                      {resettingProgress ? (
+                        <ActivityIndicator size="small" color="#DC2626" />
+                      ) : (
+                        <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                      )}
+                    </View>
+                    <View style={styles.settingsRowBody}>
+                      <Text style={[styles.settingsRowTitle, { color: "#DC2626" }]}>
+                        Reset Exam History
+                      </Text>
+                      <Text style={styles.settingsRowDesc}>
+                        Clear attempts and readiness scores
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color="#DC2626" />
+                  </TouchableOpacity>
                 </View>
               </View>
-            </View>
 
-            {/* CLOSE / DONE BUTTON */}
+              {/* APP INFO */}
+              <View style={styles.settingsAppFooter}>
+                <Text style={styles.settingsAppFooterText}>
+                  APEX-CS • 2026 Civil Service Exam Reviewer
+                </Text>
+                <Text style={styles.settingsAppVersion}>Version 1.0.0 (Release Build)</Text>
+              </View>
+            </ScrollView>
+
+            {/* DONE BUTTON */}
             <TouchableOpacity
               style={styles.settingsDoneBtn}
               activeOpacity={0.8}
@@ -2106,72 +2127,52 @@ const styles = StyleSheet.create({
 
   settingsCard: {
     width: "100%",
-    maxWidth: 400,
+    maxWidth: 420,
+    maxHeight: "85%",
     backgroundColor: "#FFFFFF",
-    borderRadius: RADIUS.md,
-    padding: 22,
+    borderRadius: 20,
+    padding: 20,
     shadowColor: "#000",
     shadowOpacity: 0.15,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
   },
 
   settingsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
-  },
-
-  settingsProfileCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 16,
-    padding: 12,
     marginBottom: 16,
-  },
-  settingsAvatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 15,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-  },
-  settingsProfileName: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
-  settingsProfileSub: {
-    fontSize: 12,
-    color: COLORS.primary,
-    fontWeight: "600",
-    marginTop: 2,
   },
 
   settingsHeaderTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
 
   settingsIconPill: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: "#EEF2FF",
     justifyContent: "center",
     alignItems: "center",
   },
 
   settingsTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
     color: COLORS.text,
+    letterSpacing: -0.3,
+  },
+
+  settingsSubtitle: {
+    fontSize: 12,
+    color: COLORS.muted,
+    fontWeight: "500",
+    marginTop: 1,
   },
 
   settingsCloseBtn: {
@@ -2183,110 +2184,190 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  settingsSection: {
-    marginBottom: 18,
+  /* PROFILE CARD */
+  settingsProfileCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 16,
   },
 
-  settingsSectionTitle: {
+  settingsAvatarImage: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+  },
+
+  settingsProfileName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+
+  settingsProfileSub: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+
+  settingsAvatarChangeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    gap: 2,
+  },
+
+  settingsAvatarChangeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+
+  /* SETTINGS GROUPS */
+  settingsGroup: {
+    marginBottom: 16,
+  },
+
+  settingsGroupHeader: {
     fontSize: 11,
     fontWeight: "800",
     color: COLORS.muted,
     letterSpacing: 0.8,
     marginBottom: 8,
+    paddingHorizontal: 4,
+    textTransform: "uppercase",
   },
 
-  settingsActionCard: {
-    backgroundColor: "#FEF2F2",
-    borderRadius: RADIUS.sm,
-    padding: 14,
+  settingsGroupCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#FEE2E2",
+    borderColor: "#E2E8F0",
+    overflow: "hidden",
   },
 
-  settingsActionTop: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-
-  settingsResetIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: "#FEE2E2",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  settingsActionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#991B1B",
-    marginBottom: 2,
-  },
-
-  settingsActionDesc: {
-    fontSize: 12,
-    color: "#7F1D1D",
-    lineHeight: 16,
-  },
-
-  settingsResetBtn: {
+  settingsRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EF4444",
-    minHeight: 44,
-    borderRadius: 10,
-    gap: 8,
-  },
-
-  settingsResetBtnText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  settingsInfoCard: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: RADIUS.sm,
     paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    paddingVertical: 12,
+    minHeight: 52,
   },
 
-  settingsInfoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  settingsRowIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 10,
+    marginRight: 12,
   },
 
-  settingsInfoDivider: {
-    height: 1,
-    backgroundColor: COLORS.border,
+  settingsRowBody: {
+    flex: 1,
+    marginRight: 8,
   },
 
-  settingsInfoLabel: {
-    fontSize: 13,
-    color: COLORS.muted,
-    fontWeight: "500",
-  },
-
-  settingsInfoValue: {
-    fontSize: 13,
-    fontWeight: "700",
+  settingsRowTitle: {
+    fontSize: 14,
+    fontWeight: "600",
     color: COLORS.text,
   },
 
+  settingsRowDesc: {
+    fontSize: 11,
+    color: COLORS.muted,
+    marginTop: 2,
+  },
+
+  settingsRowAction: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  settingsRowDivider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginLeft: 58,
+  },
+
+  /* BADGES & PILLS */
+  statusBadgeActive: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+
+  statusBadgeInactive: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+
+  statusBadgeTextActive: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#15803D",
+  },
+
+  statusBadgeTextInactive: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: COLORS.muted,
+  },
+
+  levelTag: {
+    backgroundColor: "#F3E8FF",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+
+  levelTagText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#7E22CE",
+  },
+
+  /* APP FOOTER */
+  settingsAppFooter: {
+    alignItems: "center",
+    paddingVertical: 12,
+    gap: 3,
+  },
+
+  settingsAppFooterText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: COLORS.muted,
+  },
+
+  settingsAppVersion: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: "#94A3B8",
+  },
+
+  /* DONE BUTTON */
   settingsDoneBtn: {
     backgroundColor: COLORS.primary,
     minHeight: 46,
-    borderRadius: RADIUS.sm,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 4,
+    marginTop: 8,
   },
 
   settingsDoneBtnText: {

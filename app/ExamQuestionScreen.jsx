@@ -17,6 +17,11 @@ import {
   stopSpeaking,
   formatQuestionSpeech,
 } from "../lib/speechHelper";
+import {
+  playCorrectSound,
+  unloadCorrectSound,
+  preloadCorrectSound,
+} from "../lib/soundHelper";
 
 const LETTERS = ["A", "B", "C", "D"];
 
@@ -375,16 +380,16 @@ export default function ExamQuestionScreen({
     });
   };
 
-  /* Stop speech when screen unmounts */
+  /* Preload sound for review/flashcard modes and clean up audio on unmount */
   useEffect(() => {
+    if (mode === "review" || mode === "flashcards" || mode === "flashcard") {
+      preloadCorrectSound();
+    }
     return () => {
       stopSpeaking();
+      unloadCorrectSound();
     };
   }, []);
-
-  /* =========================================================
-     RESET FLASHCARD & SPEECH WHEN QUESTION CHANGES
-  ========================================================= */
 
   useEffect(() => {
     stopSpeaking();
@@ -475,6 +480,11 @@ export default function ExamQuestionScreen({
   const handleFlashcardAnswer = (knewIt) => {
     stopSpeaking();
     setIsSpeaking(false);
+
+    if (knewIt) {
+      playCorrectSound();
+    }
+
     setAnswers((prev) => ({
       ...prev,
       [question.id]: knewIt ? "correct" : "wrong",
@@ -498,6 +508,18 @@ export default function ExamQuestionScreen({
      */
     if (mode === "review" && selected !== undefined) {
       return;
+    }
+
+    /*
+     * Only play celebratory SFX in review mode where instant feedback is visible.
+     * In timed mock exams, SFX is omitted so examinees cannot guess answers during the test.
+     */
+    if (
+      mode === "review" &&
+      selected !== choiceIndex &&
+      choiceIndex === question.correctIndex
+    ) {
+      playCorrectSound();
     }
 
     setAnswers((prev) => ({
@@ -961,34 +983,71 @@ export default function ExamQuestionScreen({
           </Text>
 
           <View style={styles.choicesWrapper}>
-            {question.choices.map((choice, i) => (
-              <TouchableOpacity
-                key={i}
-                style={getChoiceStyle(i)}
-                onPress={() =>
-                  selectChoice(i)
-                }
-                activeOpacity={0.8}
-                accessible={true}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: selected === i }}
-                accessibilityLabel={`Option ${LETTERS[i]}: ${choice}`}
-              >
-                <View style={styles.letterCircle}>
-                  <Text
-                    style={styles.letterText}
-                  >
-                    {LETTERS[i]}
-                  </Text>
-                </View>
+            {question.choices.map((choice, i) => {
+              const isSelected = selected === i;
+              const isReviewFeedback =
+                mode === "review" && selected !== undefined;
 
-                <Text
-                  style={getChoiceTextStyle(i)}
+              if (isSelected && !isReviewFeedback) {
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => selectChoice(i)}
+                    activeOpacity={0.8}
+                    accessible={true}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: true }}
+                    accessibilityLabel={`Option ${LETTERS[i]}: ${choice}`}
+                  >
+                    <LinearGradient
+                      colors={["#386BF6", "#152B65"]}
+                      start={{ x: 1, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.choiceSelectedGradient}
+                    >
+                      <View style={styles.letterCircleSelected}>
+                        <Text style={styles.letterTextSelected}>
+                          {LETTERS[i]}
+                        </Text>
+                      </View>
+
+                      <Text style={styles.choiceTextSelectedGradient}>
+                        {choice}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                );
+              }
+
+              return (
+                <TouchableOpacity
+                  key={i}
+                  style={getChoiceStyle(i)}
+                  onPress={() =>
+                    selectChoice(i)
+                  }
+                  activeOpacity={0.8}
+                  accessible={true}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={`Option ${LETTERS[i]}: ${choice}`}
                 >
-                  {choice}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <View style={styles.letterCircle}>
+                    <Text
+                      style={styles.letterText}
+                    >
+                      {LETTERS[i]}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={getChoiceTextStyle(i)}
+                  >
+                    {choice}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* REVIEW EXPLANATION */}
@@ -1802,6 +1861,38 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 14,
+  },
+
+  choiceSelectedGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    minHeight: 52,
+  },
+
+  letterCircleSelected: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  letterTextSelected: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+
+  choiceTextSelectedGradient: {
+    fontSize: 14,
+    color: "#FFFFFF",
+    fontWeight: "700",
+    flex: 1,
   },
 
   choiceCorrect: {
