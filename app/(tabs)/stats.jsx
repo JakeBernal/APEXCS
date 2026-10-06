@@ -38,6 +38,37 @@ function formatDuration(seconds) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+// Helper: Identifies if an attempt is a Full Mock Exam
+const isFullMock = (attempt) => {
+  if (!attempt) return false;
+  const title = (attempt.subject_title || "").trim().toLowerCase();
+  if (!title || title === "full mock exam" || title.includes("mock")) {
+    return true;
+  }
+  if (attempt.total_questions && attempt.total_questions >= 100) {
+    return true;
+  }
+  return false;
+};
+
+// Helper: Canonical category name
+const getAttemptCategoryName = (attempt) => {
+  if (isFullMock(attempt)) return "Full Mock Exam";
+  if (attempt.subject_title && attempt.subject_title.trim() !== "") {
+    if (attempt.subject_title.includes(" › ")) {
+      return attempt.subject_title.split(" › ")[0].trim();
+    }
+    return attempt.subject_title.trim();
+  }
+  if (
+    attempt.subject_breakdown?.length === 1 &&
+    attempt.subject_breakdown[0]?.title
+  ) {
+    return attempt.subject_breakdown[0].title;
+  }
+  return "Full Mock Exam";
+};
+
 export default function Stats() {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,13 +76,25 @@ export default function Stats() {
   // "all" | "professional" | "sub"
   const [filter, setFilter] = useState("all");
 
-  // "__all_categories__" | subject name
+  // "__all_categories__" | "__mock_exam__" | subject name
   const [categoryFilter, setCategoryFilter] = useState(
     "__all_categories__"
   );
 
   const [categoryDropdownOpen, setCategoryDropdownOpen] =
     useState(false);
+
+  const handleFilterChange = (newLevel) => {
+    setFilter(newLevel);
+    setCategoryDropdownOpen(false);
+    if (
+      categoryFilter !== "__all_categories__" &&
+      categoryFilter !== "__mock_exam__" &&
+      categoryFilter !== "Full Mock Exam"
+    ) {
+      setCategoryFilter("__all_categories__");
+    }
+  };
 
   // --------------------------------------------------
   // LOAD EXAM HISTORY
@@ -103,31 +146,59 @@ export default function Stats() {
   // --------------------------------------------------
 
   const categoryOptions = useMemo(() => {
-    const subjectNames = Array.from(
-      new Set(
-        attempts
-          .map((attempt) => attempt.subject_title)
-          .filter(
-            (subject) =>
-              subject !== null &&
-              subject !== undefined &&
-              subject !== ""
-          )
-      )
-    ).sort();
-
-    return [
+    const options = [
       {
         key: "__all_categories__",
         label: "All Categories",
       },
-
-      ...subjectNames.map((name) => ({
-        key: name,
-        label: name,
-      })),
+      {
+        key: "__mock_exam__",
+        label: "Full Mock Exam",
+      },
     ];
-  }, [attempts]);
+
+    const relevantAttempts = attempts.filter((a) => {
+      if (filter === "all") return true;
+      return a.level === filter;
+    });
+
+    const subjectSet = new Set();
+    relevantAttempts.forEach((a) => {
+      if (!isFullMock(a)) {
+        const cat = getAttemptCategoryName(a);
+        if (cat && cat !== "Full Mock Exam") {
+          subjectSet.add(cat);
+        }
+      }
+    });
+
+    if (filter === "professional") {
+      [
+        "Analytical Ability",
+        "Numerical Ability",
+        "Verbal Ability",
+        "General Information",
+      ].forEach((s) => subjectSet.add(s));
+    } else if (filter === "sub") {
+      [
+        "Clerical Ability",
+        "Numerical Ability",
+        "Verbal Ability",
+        "General Information",
+      ].forEach((s) => subjectSet.add(s));
+    }
+
+    Array.from(subjectSet)
+      .sort()
+      .forEach((name) => {
+        options.push({
+          key: name,
+          label: name,
+        });
+      });
+
+    return options;
+  }, [attempts, filter]);
 
   // --------------------------------------------------
   // FILTER ATTEMPTS
@@ -150,9 +221,25 @@ export default function Stats() {
         return true;
       }
 
-      // Individual subject
+      // Full Mock Exam filter
+      if (
+        categoryFilter === "__mock_exam__" ||
+        categoryFilter === "Full Mock Exam"
+      ) {
+        return isFullMock(attempt);
+      }
+
+      // Individual subject (exclude full mock exams)
+      if (isFullMock(attempt)) {
+        return false;
+      }
+
+      const catName = getAttemptCategoryName(attempt);
       return (
-        attempt.subject_title === categoryFilter
+        catName === categoryFilter ||
+        attempt.subject_title === categoryFilter ||
+        (attempt.subject_title &&
+          attempt.subject_title.startsWith(categoryFilter + " › "))
       );
     });
   }, [attempts, filter, categoryFilter]);
@@ -163,9 +250,8 @@ export default function Stats() {
 
   /*
    * Growth and Vs Prev are hidden when Category = All Categories.
-   * Comparing scores across totally different subjects (e.g. 10-item General Info
-   * vs 170-item Mock Exam) produces false/misleading growth figures (e.g. -52%).
-   * Growth is only shown when a specific category is selected.
+   * Comparing scores across totally different subjects produces false/misleading figures.
+   * Growth is enabled when Full Mock Exam or a specific category is selected.
    */
 
   const showGrowth =
@@ -177,19 +263,27 @@ export default function Stats() {
 
   /*
    * Two exams belong to the same growth group when:
-   *
-   * 1. They have the same subject
-   * 2. They have the same professional level
+   * 1. Both are full mock exams of the same level, OR
+   * 2. Both are the same subject category and professional level
    */
 
   const sameGroup = useCallback((a, b) => {
     if (!a || !b) return false;
 
-    return (
-      (a.subject_title ?? null) ===
-        (b.subject_title ?? null) &&
-      a.level === b.level
-    );
+    // Both are full mock exams
+    if (isFullMock(a) && isFullMock(b)) {
+      return a.level === b.level;
+    }
+
+    // One is mock exam, other is a subject drill
+    if (isFullMock(a) !== isFullMock(b)) {
+      return false;
+    }
+
+    // Both are specific subjects
+    const catA = getAttemptCategoryName(a);
+    const catB = getAttemptCategoryName(b);
+    return catA === catB && a.level === b.level;
   }, []);
 
   /*
@@ -367,7 +461,10 @@ export default function Stats() {
                 ? styles.activeFilter
                 : styles.filter
             }
-            onPress={() => setFilter("all")}
+            onPress={() => handleFilterChange("all")}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: filter === "all" }}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           >
             <Text
               style={
@@ -388,9 +485,10 @@ export default function Stats() {
                 ? styles.activeFilter
                 : styles.filter
             }
-            onPress={() =>
-              setFilter("professional")
-            }
+            onPress={() => handleFilterChange("professional")}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: filter === "professional" }}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           >
             <Text
               style={
@@ -413,7 +511,10 @@ export default function Stats() {
                 ? styles.activeFilter
                 : styles.filter
             }
-            onPress={() => setFilter("sub")}
+            onPress={() => handleFilterChange("sub")}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: filter === "sub" }}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           >
             <Text
               style={
@@ -425,6 +526,74 @@ export default function Stats() {
               adjustsFontSizeToFit
             >
               Sub-Pro
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* QUICK SUB-FILTER PILLS: ALL ITEMS vs FULL MOCK EXAM */}
+        <View style={styles.subFilterRow}>
+          <TouchableOpacity
+            style={[
+              styles.subFilterPill,
+              categoryFilter === "__all_categories__" && styles.subFilterPillActive,
+            ]}
+            onPress={() => {
+              setCategoryFilter("__all_categories__");
+              setCategoryDropdownOpen(false);
+            }}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: categoryFilter === "__all_categories__" }}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+          >
+            <Ionicons
+              name="layers-outline"
+              size={14}
+              color={categoryFilter === "__all_categories__" ? "#FFFFFF" : COLORS.muted}
+            />
+            <Text
+              style={[
+                styles.subFilterPillText,
+                categoryFilter === "__all_categories__" && styles.subFilterPillTextActive,
+              ]}
+            >
+              All Items
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.subFilterPill,
+              (categoryFilter === "__mock_exam__" || categoryFilter === "Full Mock Exam") &&
+                styles.subFilterPillActive,
+            ]}
+            onPress={() => {
+              setCategoryFilter("__mock_exam__");
+              setCategoryDropdownOpen(false);
+            }}
+            accessibilityRole="tab"
+            accessibilityState={{
+              selected:
+                categoryFilter === "__mock_exam__" || categoryFilter === "Full Mock Exam",
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+          >
+            <Ionicons
+              name="timer-outline"
+              size={14}
+              color={
+                categoryFilter === "__mock_exam__" || categoryFilter === "Full Mock Exam"
+                  ? "#FFFFFF"
+                  : COLORS.primary
+              }
+            />
+            <Text
+              style={[
+                styles.subFilterPillText,
+                (categoryFilter === "__mock_exam__" || categoryFilter === "Full Mock Exam") &&
+                  styles.subFilterPillTextActive,
+              ]}
+            >
+              Full Mock Exam
             </Text>
           </TouchableOpacity>
         </View>
@@ -541,10 +710,27 @@ export default function Stats() {
 
         {!loading &&
           filtered.length === 0 && (
-            <Text style={styles.emptyText}>
-              No exams taken yet. Finish a mock
-              exam to see it here.
-            </Text>
+            <View style={styles.emptyContainer}>
+              <Ionicons
+                name={
+                  categoryFilter === "__mock_exam__" || categoryFilter === "Full Mock Exam"
+                    ? "timer-outline"
+                    : "document-text-outline"
+                }
+                size={48}
+                color="#A0ABC0"
+              />
+              <Text style={styles.emptyTitle}>
+                {categoryFilter === "__mock_exam__" || categoryFilter === "Full Mock Exam"
+                  ? `No ${filter === "sub" ? "Sub-Professional " : filter === "professional" ? "Professional " : ""}Mock Exams Found`
+                  : "No Exam Records Found"}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {categoryFilter === "__mock_exam__" || categoryFilter === "Full Mock Exam"
+                  ? "Complete a full timed mock exam to track your scores and score growth here."
+                  : "Take exams or practice drills to track your history and progress."}
+              </Text>
+            </View>
           )}
 
         {/* EXAM HISTORY */}
@@ -566,46 +752,18 @@ export default function Stats() {
                 (prevInGroup.score ?? 0)
               : null;
 
-            /*
-             * filtered is newest -> oldest.
-             *
-             * Example:
-             *
-             * index 0 = latest
-             * index 1 = second latest
-             * index 2 = third latest
-             *
-             * Therefore:
-             *
-             * total 5:
-             *
-             * latest = Exam #5
-             * second = Exam #4
-             * third  = Exam #3
-             * fourth = Exam #2
-             * oldest = Exam #1
-             */
-
             const examNumber =
               filtered.length - index;
 
             // Extract Category and Sub-category (Chapter/Topic)
-            let categoryName = "Full Mock Exam";
+            const categoryName = getAttemptCategoryName(attempt);
             let subCategoryName = null;
 
             if (attempt.subject_title && attempt.subject_title.trim() !== "") {
               if (attempt.subject_title.includes(" › ")) {
                 const parts = attempt.subject_title.split(" › ");
-                categoryName = parts[0].trim();
                 subCategoryName = parts[1].trim();
-              } else {
-                categoryName = attempt.subject_title.trim();
               }
-            } else if (
-              attempt.subject_breakdown?.length === 1 &&
-              attempt.subject_breakdown[0]?.title
-            ) {
-              categoryName = attempt.subject_breakdown[0].title;
             }
 
             const levelLabel =
@@ -1008,6 +1166,46 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  /*
+   * QUICK SUB-FILTER PILLS
+   */
+  subFilterRow: {
+    flexDirection: "row",
+    marginHorizontal: 24,
+    marginBottom: 10,
+    gap: 8,
+  },
+
+  subFilterPill: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+
+  subFilterPillActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+
+  subFilterPillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.muted,
+  },
+
+  subFilterPillTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
+
   dropdownWrapper: {
     marginHorizontal: 24,
     marginBottom: 24,
@@ -1076,6 +1274,30 @@ const styles = StyleSheet.create({
   dropdownItemTextActive: {
     color: COLORS.primary,
     fontWeight: "700",
+  },
+
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+  },
+
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginTop: 14,
+    textAlign: "center",
+  },
+
+  emptySubtitle: {
+    fontSize: 13,
+    color: COLORS.muted,
+    marginTop: 6,
+    textAlign: "center",
+    lineHeight: 18,
+    maxWidth: 280,
   },
 
   emptyText: {
