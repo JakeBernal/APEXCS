@@ -4,7 +4,7 @@
     "slug": "apex",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/apex-icon2.png",
+    "icon": "./assets/apex-icon1.png",
     "scheme": "apex",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -12,7 +12,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/apex-icon2.png",
+        "foregroundImage": "./assets/apex-icon1.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.anonymous.apex",
@@ -20,7 +20,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/apex-icon1.png"
     },
     "plugins": [
       "expo-router",
@@ -29,7 +29,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/apex-icon2.png",
+          "image": "./assets/apex-icon1.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
@@ -38,7 +38,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/apex-icon2.png",
+          "icon": "./assets/apex-icon1.png",
           "color": "#386BF6"
         }
       ],
