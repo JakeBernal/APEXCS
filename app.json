@@ -29,8 +29,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/apex-icon1.png",
-          "imageWidth": 200,
+          "image": "./assets/transparent.png",
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
