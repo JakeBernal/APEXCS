@@ -17,6 +17,9 @@ import { getCategoryConfig } from "../lib/curriculum";
 import { getDashboardSummary } from "../lib/attempts";
 import { getQuestionCounts } from "../lib/examData";
 import ExamSession from "./ExamSession";
+import QuestionCountSlider, {
+  getEstimatedMinutes,
+} from "../components/QuestionCountSlider";
 
 const COLORS = {
   primary: "#386BF6",
@@ -53,6 +56,7 @@ export default function CategoryDetails() {
   const [selectedPracticeChapter, setSelectedPracticeChapter] = useState(null);
   const [showModeModal, setShowModeModal] = useState(false);
   const [selectedMode, setSelectedMode] = useState("timed");
+  const [selectedQuestionCount, setSelectedQuestionCount] = useState(30);
 
   const loadData = useCallback(async () => {
     try {
@@ -104,6 +108,9 @@ export default function CategoryDetails() {
 
   const handleStartPractice = (chapter = null) => {
     setSelectedPracticeChapter(chapter);
+    // Sub-category (chapter): 10, 15, 25 (default 15)
+    // Entire category: 20, 30, 40 (default 30)
+    setSelectedQuestionCount(chapter ? 15 : 30);
     setShowModeModal(true);
   };
 
@@ -120,6 +127,7 @@ export default function CategoryDetails() {
         chapter={selectedPracticeChapter}
         level={level}
         mode={selectedMode}
+        questionLimit={selectedQuestionCount}
         onExit={() => {
           setActiveSession(false);
           setSelectedPracticeChapter(null);
@@ -400,9 +408,18 @@ export default function CategoryDetails() {
 
             <Text style={styles.modalSubtitle}>
               {selectedPracticeChapter
-                ? `Practicing: ${selectedPracticeChapter.title} (Max 30 items · 40 mins)`
-                : `Practicing: All ${categoryConfig.title} (Max 50 items · 1 hr)`}
+                ? `Practicing: ${selectedPracticeChapter.title} · ${selectedQuestionCount} items`
+                : `Practicing: All ${categoryConfig.title} · ${selectedQuestionCount} items`}
             </Text>
+
+            {/* QUESTION COUNT SLIDER (10-15-25 for sub-categories, 20-30-40 for categories) */}
+            <QuestionCountSlider
+              value={selectedQuestionCount}
+              onChange={setSelectedQuestionCount}
+              options={selectedPracticeChapter ? [10, 15, 25] : [20, 30, 40]}
+              variant="light"
+              mode={selectedMode}
+            />
 
             {/* MODE OPTIONS */}
             <View style={styles.modeTabs}>
@@ -433,12 +450,10 @@ export default function CategoryDetails() {
 
             <Text style={styles.modeDesc}>
               {selectedMode === "timed"
-                ? selectedPracticeChapter
-                  ? "Timed 40-minute practice session (max 30 items) simulating exam conditions."
-                  : "Timed 1-hour practice session (max 50 items) simulating exam conditions."
+                ? `Timed ${getEstimatedMinutes(selectedQuestionCount)}-minute practice session (${selectedQuestionCount} items) simulating exam conditions.`
                 : selectedMode === "review"
-                ? "Self-paced study mode with instant answers and explanations."
-                : "Quick-flip flashcard review to memorize key concepts rapidly."}
+                ? `Self-paced study mode with instant answers and explanations for ${selectedQuestionCount} items.`
+                : `Quick-flip flashcard review to memorize key concepts across ${selectedQuestionCount} items rapidly.`}
             </Text>
 
             <TouchableOpacity

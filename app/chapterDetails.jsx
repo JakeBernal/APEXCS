@@ -20,6 +20,9 @@ import {
 import { getDashboardSummary } from "../lib/attempts";
 import { getQuestionCounts } from "../lib/examData";
 import ExamSession from "./ExamSession";
+import QuestionCountSlider, {
+  getEstimatedMinutes,
+} from "../components/QuestionCountSlider";
 
 const COLORS = {
   primary: "#386BF6",
@@ -85,6 +88,7 @@ export default function ChapterDetails() {
   // Active exam session state
   const [activeSession, setActiveSession] = useState(false);
   const [selectedMode, setSelectedMode] = useState("timed");
+  const [questionCount, setQuestionCount] = useState(15);
 
   const loadData = useCallback(async () => {
     try {
@@ -156,6 +160,7 @@ export default function ChapterDetails() {
         chapter={chapterConfig}
         level={level}
         mode={selectedMode}
+        questionLimit={questionCount}
         onExit={() => {
           setActiveSession(false);
           loadData();
@@ -324,6 +329,17 @@ export default function ChapterDetails() {
         </View>
 
         <View style={styles.modesContainer}>
+          {/* QUESTION COUNT SLIDER (10, 15, 25 for sub-categories) */}
+          <View style={styles.sliderBox}>
+            <QuestionCountSlider
+              value={questionCount}
+              onChange={setQuestionCount}
+              options={[10, 15, 25]}
+              variant="light"
+              mode="timed"
+            />
+          </View>
+
           {/* TIMED MODE */}
           <TouchableOpacity
             style={styles.modeCard}
@@ -337,11 +353,13 @@ export default function ChapterDetails() {
               <View style={styles.modeTitleRow}>
                 <Text style={styles.modeTitle}>Timed Practice</Text>
                 <View style={styles.modeBadge}>
-                  <Text style={styles.modeBadgeText}>40 Mins</Text>
+                  <Text style={styles.modeBadgeText}>
+                    {getEstimatedMinutes(questionCount)} Mins
+                  </Text>
                 </View>
               </View>
               <Text style={styles.modeDesc}>
-                Practice under exam conditions with a 40-minute countdown timer (max 30 items).
+                Practice under exam conditions with a {getEstimatedMinutes(questionCount)}-minute countdown timer ({questionCount} items).
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
@@ -370,7 +388,7 @@ export default function ChapterDetails() {
                 </View>
               </View>
               <Text style={styles.modeDesc}>
-                No timer. See instant answers and detailed rationales.
+                No timer. Work through {questionCount} questions with instant answers and rationales.
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
@@ -399,7 +417,7 @@ export default function ChapterDetails() {
                 </View>
               </View>
               <Text style={styles.modeDesc}>
-                Quickly test your retention by flipping question cards.
+                Quick-flip {questionCount} bite-sized cards to reinforce chapter key terms fast.
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
@@ -748,6 +766,15 @@ const styles = StyleSheet.create({
   modesContainer: {
     paddingHorizontal: 16,
     gap: 10,
+  },
+  sliderBox: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 4,
   },
   modeCard: {
     flexDirection: "row",

@@ -26,7 +26,14 @@ const TIMED_DURATION = {
   chapter: 40 * 60,
 };
 
-export default function ExamSession({ subject, chapter = null, level, mode, onExit }) {
+export default function ExamSession({
+  subject,
+  chapter = null,
+  level,
+  mode,
+  questionLimit = null,
+  onExit,
+}) {
   // subject: { title, ... } | string | null
   // chapter: { title, ... } | string | null
   const subjectTitle =
@@ -41,7 +48,9 @@ export default function ExamSession({ subject, chapter = null, level, mode, onEx
   useEffect(() => {
     let cancelled = false;
 
-    buildQuestionSet(subjectTitle, level, chapterTitle)
+    buildQuestionSet(subjectTitle, level, chapterTitle, {
+      limit: questionLimit,
+    })
       .then((data) => {
         if (cancelled) return;
         setQuestions(data);
@@ -59,21 +68,35 @@ export default function ExamSession({ subject, chapter = null, level, mode, onEx
     return () => {
       cancelled = true;
     };
-  }, [subjectTitle, chapterTitle, level]);
+  }, [subjectTitle, chapterTitle, level, questionLimit]);
 
   const [screen, setScreen] = useState("question"); // "question" | "result"
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({}); // { [questionId]: choiceIndex }
 
-  // Determine timer duration based on scope:
-  // - Sub-category (chapter): 40 minutes (max 30 items)
-  // - Category (major subject): 1 hour / 60 minutes (max 50 items)
+  // Determine timer duration based on scope & selected question count:
+  // - Sub-category (chapter): 10 items (15m), 15 items (20m), 25 items (35m), default 40m
+  // - Category (major subject): 20 items (25m), 30 items (40m), 40 items (50m), default 1h
   // - Full mock exam: 3 hours (Professional) or 2 hours (Sub-Professional)
-  const initialDuration = chapterTitle
-    ? TIMED_DURATION.chapter
-    : subjectTitle
-    ? TIMED_DURATION.category
-    : TIMED_DURATION[level] ?? TIMED_DURATION.professional;
+  const getScaledDuration = () => {
+    if (chapterTitle) {
+      if (questionLimit === 10) return 15 * 60;
+      if (questionLimit === 15) return 20 * 60;
+      if (questionLimit === 25) return 35 * 60;
+      if (questionLimit) return Math.max(10, Math.round(questionLimit * 1.4)) * 60;
+      return TIMED_DURATION.chapter;
+    }
+    if (subjectTitle) {
+      if (questionLimit === 20) return 25 * 60;
+      if (questionLimit === 30) return 40 * 60;
+      if (questionLimit === 40) return 50 * 60;
+      if (questionLimit) return Math.max(15, Math.round(questionLimit * 1.3)) * 60;
+      return TIMED_DURATION.category;
+    }
+    return TIMED_DURATION[level] ?? TIMED_DURATION.professional;
+  };
+
+  const initialDuration = getScaledDuration();
 
   const [timeLeft, setTimeLeft] = useState(initialDuration);
   const [showSubmitModal, setShowSubmitModal] = useState(false);

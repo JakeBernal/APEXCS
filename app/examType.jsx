@@ -14,6 +14,9 @@ import {
 import ExamSession from "./ExamSession";
 import { router, useLocalSearchParams } from "expo-router";
 import { getCurriculum, EXAM_LEVELS } from "../lib/curriculum";
+import QuestionCountSlider, {
+  getEstimatedMinutes,
+} from "../components/QuestionCountSlider";
 
 export default function ExamType() {
   const { level } = useLocalSearchParams();
@@ -23,6 +26,7 @@ export default function ExamType() {
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [selectedChapter, setSelectedChapter] = useState(null);
+  const [selectedQuestionCount, setSelectedQuestionCount] = useState(30);
   const [activeSession, setActiveSession] = useState(false);
 
   const [selected, setSelected] = useState(
@@ -84,6 +88,16 @@ export default function ExamType() {
   const openExamFor = (subject = null, chapter = null) => {
     setSelectedSubject(subject);
     setSelectedChapter(chapter);
+    // Sub-category (chapter): 10, 15, 25 (default 15)
+    // Category: 20, 30, 40 (default 30)
+    // Full mock exam: null (uses standard official items)
+    if (chapter) {
+      setSelectedQuestionCount(15);
+    } else if (subject) {
+      setSelectedQuestionCount(30);
+    } else {
+      setSelectedQuestionCount(null);
+    }
     setShowMode(true);
   };
 
@@ -97,6 +111,7 @@ export default function ExamType() {
       chapter={selectedChapter}
       level={selected}
       mode={selectedMode}
+      questionLimit={selectedQuestionCount}
       onExit={() => {
         setActiveSession(false);
         setSelectedSubject(null);
@@ -509,11 +524,22 @@ export default function ExamType() {
               }
             </Text>
 
+            {/* QUESTION COUNT SLIDER (10-15-25 for sub-categories, 20-30-40 for categories) */}
+            {(selectedChapter || selectedSubject) && (
+              <QuestionCountSlider
+                value={selectedQuestionCount}
+                onChange={setSelectedQuestionCount}
+                options={selectedChapter ? [10, 15, 25] : [20, 30, 40]}
+                variant="dark"
+                mode={selectedMode}
+              />
+            )}
+
             <Text style={styles.modeScope}>
               {selectedChapter
-                ? `Practicing "${selectedChapter.title}" · Max 30 items · 40 mins`
+                ? `Practicing "${selectedChapter.title}" · ${selectedQuestionCount} items · ${getEstimatedMinutes(selectedQuestionCount)} mins`
                 : selectedSubject
-                ? `Practicing all ${selectedSubject.chapters?.length || 0} topics in ${selectedSubject.title} · Max 50 items · 1 hr`
+                ? `Practicing all ${selectedSubject.chapters?.length || 0} topics in ${selectedSubject.title} · ${selectedQuestionCount} items · ${getEstimatedMinutes(selectedQuestionCount)} mins`
                 : `Full Mock Exam covering all ${subjects.length} categories · ${selected === "professional" ? "170 items · 3 hrs" : "165 items · 2 hrs"}`}
             </Text>
 
