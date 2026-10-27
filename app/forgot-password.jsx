@@ -77,27 +77,9 @@ export default function ForgotPassword() {
 
     setLoading(true);
 
-    // 1. Try signInWithOtp (native 6-digit OTP code, doesn't require PKCE/links)
-    let sendError = null;
-    const { error: otpSendError } = await supabase.auth.signInWithOtp({
-      email: cleanEmail,
-      options: {
-        shouldCreateUser: false,
-      },
-    });
-
-    if (otpSendError) {
-      // If user doesn't exist, show clear message
-      if (otpSendError.message?.toLowerCase().includes("signups not allowed")) {
-        setLoading(false);
-        Alert.alert("Account Not Found", "No account registered with this email address.");
-        return;
-      }
-
-      // 2. Fallback to resetPasswordForEmail
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanEmail);
-      sendError = resetErr;
-    }
+    // Send password reset via Supabase
+    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+    const sendError = resetErr;
 
     setLoading(false);
 
@@ -129,7 +111,7 @@ export default function ForgotPassword() {
     let verified = false;
 
     // Check all possible OTP token types in Supabase: email, magiclink, recovery
-    const typesToTry = ["email", "magiclink", "recovery"];
+    const typesToTry = ["recovery", "email", "magiclink"];
     for (const otpType of typesToTry) {
       try {
         const { data, error } = await supabase.auth.verifyOtp({

@@ -85,18 +85,43 @@ export default function ExamType() {
     );
   };
 
+  const isAllCategories = !selectedSubject && !selectedChapter;
+  const isChapter = Boolean(selectedChapter);
+  const isCategory = Boolean(selectedSubject && !selectedChapter);
+
+  // Slider options:
+  // - Sub-category (chapter): 10, 15, 25 (default 15)
+  // - Category (subject): 20, 30, 40 (default 30)
+  // - All Categories (review & flashcard only): 20, 30, 50 (default 30)
+  const sliderOptions = isChapter
+    ? [10, 15, 25]
+    : isCategory
+    ? [20, 30, 40]
+    : [20, 30, 50];
+
+  // Show slider for chapters and categories in all modes,
+  // and for All Categories ONLY in review or flashcard mode.
+  const showSlider =
+    isChapter ||
+    isCategory ||
+    (isAllCategories && (selectedMode === "review" || selectedMode === "flashcards"));
+
+  // In All Categories + Timed mode, keep questionLimit as null (official 170 / 165 mock exam items)
+  const effectiveQuestionLimit =
+    isAllCategories && selectedMode === "timed"
+      ? null
+      : selectedQuestionCount || sliderOptions[1];
+
   const openExamFor = (subject = null, chapter = null) => {
     setSelectedSubject(subject);
     setSelectedChapter(chapter);
-    // Sub-category (chapter): 10, 15, 25 (default 15)
-    // Category: 20, 30, 40 (default 30)
-    // Full mock exam: null (uses standard official items)
     if (chapter) {
       setSelectedQuestionCount(15);
     } else if (subject) {
       setSelectedQuestionCount(30);
     } else {
-      setSelectedQuestionCount(null);
+      // All categories: default to 30 for Review and Flashcard modes
+      setSelectedQuestionCount(30);
     }
     setShowMode(true);
   };
@@ -111,7 +136,7 @@ export default function ExamType() {
       chapter={selectedChapter}
       level={selected}
       mode={selectedMode}
-      questionLimit={selectedQuestionCount}
+      questionLimit={effectiveQuestionLimit}
       onExit={() => {
         setActiveSession(false);
         setSelectedSubject(null);
@@ -524,12 +549,12 @@ export default function ExamType() {
               }
             </Text>
 
-            {/* QUESTION COUNT SLIDER (10-15-25 for sub-categories, 20-30-40 for categories) */}
-            {(selectedChapter || selectedSubject) && (
+            {/* QUESTION COUNT SLIDER */}
+            {showSlider && (
               <QuestionCountSlider
-                value={selectedQuestionCount}
+                value={selectedQuestionCount || sliderOptions[1]}
                 onChange={setSelectedQuestionCount}
-                options={selectedChapter ? [10, 15, 25] : [20, 30, 40]}
+                options={sliderOptions}
                 variant="dark"
                 mode={selectedMode}
               />
@@ -537,10 +562,12 @@ export default function ExamType() {
 
             <Text style={styles.modeScope}>
               {selectedChapter
-                ? `Practicing "${selectedChapter.title}" · ${selectedQuestionCount} items · ${getEstimatedMinutes(selectedQuestionCount)} mins`
+                ? `Practicing "${selectedChapter.title}" · ${effectiveQuestionLimit} items · ${getEstimatedMinutes(effectiveQuestionLimit)} mins`
                 : selectedSubject
-                ? `Practicing all ${selectedSubject.chapters?.length || 0} topics in ${selectedSubject.title} · ${selectedQuestionCount} items · ${getEstimatedMinutes(selectedQuestionCount)} mins`
-                : `Full Mock Exam covering all ${subjects.length} categories · ${selected === "professional" ? "170 items · 3 hrs" : "165 items · 2 hrs"}`}
+                ? `Practicing all ${selectedSubject.chapters?.length || 0} topics in ${selectedSubject.title} · ${effectiveQuestionLimit} items · ${getEstimatedMinutes(effectiveQuestionLimit)} mins`
+                : selectedMode === "timed"
+                ? `Full Mock Exam covering all ${subjects.length} categories · ${selected === "professional" ? "170 items · 3 hrs" : "165 items · 2 hrs"}`
+                : `All Categories ${selectedMode === "flashcards" ? "Flashcards" : "Review"} · ${effectiveQuestionLimit} items across all categories`}
             </Text>
 
             <TouchableOpacity
@@ -553,9 +580,12 @@ export default function ExamType() {
               <Text
                 style={styles.practiceText}
               >
-                {selectedMode ===
-                "flashcards"
+                {selectedMode === "flashcards"
                   ? "Start Flashcards"
+                  : selectedMode === "review"
+                  ? "Start Review"
+                  : isAllCategories
+                  ? "Start Full Exam"
                   : "Start Exam"}
               </Text>
             </TouchableOpacity>
