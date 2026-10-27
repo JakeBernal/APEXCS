@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APEX-CS: Appendix E User's Manual - Screen UIs</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+    
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0B1120;
+      color: #E2E8F0;
+    }
+
+    .phone-mockup {
+      width: 340px;
+      height: 700px;
+      border-radius: 42px;
+      border: 8px solid #1E293B;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      position: relative;
+      background: #FFFFFF;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      color: #14143A;
+    }
+
+    .phone-notch {
+      width: 120px;
+      height: 20px;
+      background: #1E293B;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+      z-index: 50;
+    }
+
+    .callout-pin {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 9999px;
+      background-color: #EF4444;
+      color: #FFFFFF;
+      font-weight: 800;
+      font-size: 11px;
+      border: 2px solid #FFFFFF;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      position: absolute;
+      z-index: 40;
+    }
+
+    .print-sheet {
+      background: #FFFFFF;
+      color: #1E293B;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body class="p-6 md:p-12">
+
+  <!-- Header Banner -->
+  <div class="max-w-6xl mx-auto mb-12 text-center">
+    <div class="inline-block px-4 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-full text-blue-400 font-semibold text-xs tracking-wider uppercase mb-3">
+      Pangasinan State University — Capstone Project
+    </div>
+    <h1 class="text-3xl md:text-5xl font-extrabold text-white tracking-tight mb-2">
+      APEX-CS User Manual Screens
+    </h1>
+    <p class="text-slate-400 max-w-2xl mx-auto text-sm md:text-base">
+      High-fidelity visual UI screens with numbered callout markers for <strong class="text-white">Appendix E: User's Manual</strong> (User Side). Capture or copy these directly into your capstone manuscript.
+    </p>
+    <div class="mt-4 flex flex-wrap justify-center gap-3">
+      <button onclick="window.print()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm rounded-lg transition-all shadow-lg flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+        Print / Save to PDF
+      </button>
+      <a href="#screens-grid" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-sm rounded-lg transition-all border border-slate-700">
+        Browse All 14 Core Screens ↓
+      </a>
+    </div>
+  </div>
+
+  <div id="screens-grid" class="max-w-6xl mx-auto space-y-16">
+
+    <!-- ========================================== -->
+    <!-- SCREEN 1: Onboarding Walkthrough -->
+    <!-- ========================================== -->
+    <div class="print-sheet p-6 md:p-8 border border-slate-200">
+      <div class="flex flex-col lg:flex-row gap-8 items-center lg:items-start">
+        
+        <!-- Phone Frame -->
+        <div class="phone-mockup shrink-0">
+          <div class="phone-notch"></div>
+          
+          <!-- Top Bar -->
+          <div class="pt-7 px-5 flex justify-between items-center relative">
+            <span class="text-xs font-semibold text-slate-500">9:41</span>
+            <div class="relative">
+              <span class="text-xs font-bold text-blue-600">Skip</span>
+              <span class="callout-pin -top-2 -left-6">1</span>
+            </div>
+          </div>
+
+          <!-- Logo -->
+          <div class="mt-4 text-center relative">
+            <span class="callout-pin -top-1 left-20">2</span>
+            <span class="text-2xl font-black text-[#14143A] tracking-wider">APEX<span class="text-blue-600 font-bold lowercase">cs</span></span>
+          </div>
+
+          <!-- Graphic Container -->
+          <div class="mt-8 px-6 flex-1 flex flex-col items-center justify-center relative">
+            <span class="callout-pin top-6 left-6">3</span>
+            <div class="w-48 h-48 bg-gradient-to-tr from-blue-100 to-indigo-50 rounded-2xl flex items-center justify-center p-4 border border-blue-100">
+              <svg class="w-28 h-28 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+              </svg>
+            </div>
+
+            <!-- Content -->
+            <div class="mt-6 text-center relative w-full">
+              <span class="callout-pin -top-2 left-4">4</span>
+              <h3 class="text-lg font-bold text-[#14143A]">Your Civil Service Reviewer</h3>
+              <p class="text-xs text-slate-500 mt-1">Review anytime, anywhere at your own pace.</p>
+            </div>
+
+            <!-- Dots -->
+            <div class="mt-6 flex gap-2 relative">
+              <span class="callout-pin -top-2 -left-7">5</span>
+              <div class="w-6 h-2 bg-blue-600 rounded-full"></div>
+              <div class="w-2 h-2 bg-slate-300 rounded-full"></div>
+            </div>
+          </div>
+
+          <!-- Next Button -->
+          <div class="p-5 pb-8 relative">
+            <span class="callout-pin top-2 left-8">6</span>
+            <button class="w-full py-3.5 bg-blue-600 rounded-xl text-white font-bold text-sm shadow-md">
+              Next
+            </button>
+          </div>
+        </div>
+
+        <!-- Callout Guide -->
+        <div class="flex-1 space-y-4">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-xs font-bold text-blue-600 tracking-wider uppercase">Screen E.1</span>
+            <h2 class="text-2xl font-bold text-slate-900">Onboarding Walkthrough Screen</h2>
+            <p class="text-sm text-slate-600 mt-1">Introduces prospective examinees to the APEX-CS review platform upon initial launch.</p>
+          </div>
+          <ul class="space-y-2.5 text-sm text-slate-700">
+            <li class="flex items-start gap-2">
+              <span class="callout-pin shrink-0 relative mt-0.5">1</span>
+              <div><strong>Skip Control:</strong> Immediately bypasses the walkthrough slides and navigates to the login screen.</div>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="callout-pin shrink-0 relative mt-0.5">2</span>
+              <div><strong>APEX-CS Branding:</strong> Official high-contrast brand emblem.</div>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="callout-pin shrink-0 relative mt-0.5">3</span>
+              <div><strong>Feature Illustration:</strong> Visual iconography depicting mobile civil service review readiness.</div>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="callout-pin shrink-0 relative mt-0.5">4</span>
+              <div><strong>Headline & Summary:</strong> Crisp copy describing core benefits (Anytime, Anywhere).</div>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="callout-pin shrink-0 relative mt-0.5">5</span>
+              <div><strong>Slide Pagination:</strong> Active dot indicator denoting position in the walkthrough sequence.</div>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="callout-pin shrink-0 relative mt-0.5">6</span>
+              <div><strong>Next / Get Started CTA:</strong> Advances the slide deck or triggers the registration gateway.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- SCREEN 2: Ready to Start Gateway -->
+    <!-- ========================================== -->
+    <div class="print-sheet p-6 md:p-8 border border-slate-200">
+      <div class="flex flex-col lg:flex-row gap-8 items-center lg:items-start">
+        
+        <!-- Phone Frame -->
+        <div class="phone-mockup shrink-0">
+          <div class="phone-notch"></div>
+          
+          <div class="pt-8 px-5 flex justify-between items-center">
+            <span class="text-xs font-semibold text-slate-500">9:41</span>
+          </div>
+
+          <div class="mt-6 text-center relative">
+            <span class="callout-pin -top-1 left-20">1</span>
+            <span class="text-2xl font-black text-[#14143A] tracking-wider">APEX<span class="text-blue-600 font-bold lowercase">cs</span></span>
+          </div>
+
+          <div class="px-6 flex-1 flex flex-col items-center justify-center relative">
+            <div class="relative w-full text-center">
+              <span class="callout-pin -top-2 left-10">2</span>
+              <h2 class="text-2xl font-black text-[#14143A]">Ready To Start?</h2>
+            </div>
+
+            <div class="mt-6 w-48 h-48 bg-blue-50 rounded-2xl flex items-center justify-center p-4 border border-blue-100 relative">
+              <span class="callout-pin top-3 left-3">3</span>
+              <svg class="w-28 h-28 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Buttons -->
+          <div class="p-5 pb-8 space-y-3 relative">
+            <div class="relative">
+              <span class="callout-pin -top-2 left-6">4</span>
+              <button class="w-full py-3.5 bg-blue-600 rounded-xl text-white font-bold text-sm shadow-md">
+                Create an Account
+              </button>
+            </div>
+            <div class="relative">
+              <span class="callout-pin -top-2 left-6">5</span>
+              <button class="w-full py-3.5 bg-white border border-slate-300 rounded-xl text-[#14143A] font-bold text-sm">
+                I Already Have an Account
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Callout Guide -->
+        <div class="flex-1 space-y-4">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-xs font-bold text-blue-600 tracking-wider uppercase">Screen E.2</span>
+            <h2 class="text-2xl font-bold text-slate-900">User Entry Gateway Screen</h2>
+            <p class="text-sm text-slate-600 mt-1">Routes new and returning examinees to registration or account sign-in.</p>
+          </div>
+          <ul class="space-y-2.5 text-sm text-slate-700">
+            <li class="flex items-start gap-2">
+              <span class="callout-pin shrink-0 relative mt-0.5">1</span>
+              <div><strong>Brand Identification:</strong> Persistent APEX-CS brand logo.</div>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="callout-pin shrink-0 relative mt-0.5">2</span>
+              <div><strong>Gateway Prompt:</strong> Clear call to action encouraging the candidate to begin review.</div>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="callout-pin shrink-0 relative mt-0.5">3</span>
+              <div><strong>Visual Hero Art:</strong> Graphic element representing examination mastery.</div>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="callout-pin shrink-0 relative mt-0.5">4</span>
+              <div><strong>Create an Account (Primary CTA):</strong> Directs new candidates to the user registration form.</div>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="callout-pin shrink-0 relative mt-0.5">5</span>
+              <div><strong>Sign-In (Secondary CTA):</strong> Directs existing users directly to the login interface.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- SCREEN 3: User Registration -->
+    <!-- ========================================== -->
+    <div class="print-sheet p-6 md:p-8 border border-slate-200">
+      <div class="flex flex-col lg:flex-row gap-8 items-center lg:items-start">
+        
+        <!-- Phone Frame -->
+        <div class="phone-mockup shrink-0">
+          <div class="phone-notch"></div>
+          
+          <div class="pt-7 px-5 flex justify-between items-center border-b border-slate-100 pb-3">
+            <div class="relative">
+              <span class="callout-pin -top-2 -left-4">1</span>
+              <span class="text-sm font-bold text-blue-600">‹ Back</span>
+            </div>
+            <div class="relative">
+              <span class="callout-pin -top-2 -right-4">2</span>
+              <span class="text-xs font-black text-[#14143A]">APEX<span class="text-blue-600 font-bold lowercase">cs</span></span>
+            </div>
+          </div>
+
+          <div class="px-5 py-3 overflow-y-auto flex-1 space-y-2.5">
+            <div>
+              <h3 class="text-base font-black text-[#14143A]">Create Account</h3>
+              <p class="text-[11px] text-slate-500">Sign up to begin your review journey</p>
+            </div>
+
+            <!-- Full Name -->
+            <div class="relative">
+              <span class="callout-pin -top-2 right-2">3</span>
+              <label class="text-[10px] font-bold text-slate-500 uppercase">Full Name</label>
+              <div class="mt-0.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800">
+                Juan Dela Cruz
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div class="relative">
+              <span class="callout-pin -top-2 right-2">4</span>
+              <label class="text-[10px] font-bold text-slate-500 uppercase">Email Address</label>
+              <div class="mt-0.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800">
+                juandelacruz@gmail.com
+              </div>
+            </div>
+
+            <!-- Password -->
+            <div class="relative">
+              <span class="callout-pin -top-2 right-8">5</span>
+              <span class="callout-pin -top-2 right-0">6</span>
+              <label class="text-[10px] font-bold text-slate-500 uppercase">Password</label>
+              <div class="mt-0.5 px-3 py-2 bg-slate-50 border border-blue-400 rounded-lg text-xs text-slate-800 flex justify-between items-center">
+                <span>••••••••</span>
+                <span class="text-[11px] text-slate-400">👁</span>
+              </div>
+            </div>
+
+            <!-- Confirm -->
+            <div class="relative">
+              <span class="callout-pin -top-2 right-8">7</span>
+              <span class="callout-pin -top-2 right-0">8</span>
+              <label class="text-[10px] font-bold text-slate-500 uppercase">Confirm Password</label>
+              <div class="mt-0.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 flex justify-between items-center">
+                <span>••••••••</span>
+                <span class="text-[11px] text-slate-400">👁</span>
+              </div>
+            </div>
+
+            <!-- Validation Badges -->
+            <div class="p-2 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+              <div class="flex items-center gap-1.5 text-[10px] text-emerald-600 font-semibold relative">
+                <span class="callout-pin -left-5">9</span>
+                <span>✓</span> At least 6 characters
+              </div>
+              <div class="flex items-center gap-1.5 text-[10px] text-emerald-600 font-semibold relative">
+                <span class="callout-pin -left-5">10</span>
+                <span>✓</span> At least one number (0-9)
+              </div>
+              <div class="flex items-center gap-1.5 text-[10px] text-emerald-600 font-semibold relative">
+                <span class="callout-pin -left-5">11</span>
+                <span>✓</span> Passwords match
+              </div>
+            </div>
+
+            <!-- Terms -->
+            <div class="flex items-center gap-2 pt-1 relative">
+              <span class="callout-pin -top-2 -left-2">12</span>
+              <input type="checkbox" checked class="rounded text-blue-600">
+              <span class="text-[10px] text-slate-600">I agree to the <strong class="text-blue-600">Terms & Conditions</strong></span>
+              <span class="callout-pin -top-2 right-0">13</span>
+            </div>
+
+            <!-- Sign Up Button -->
+            <div class="pt-1 relative">
+              <span class="callout-pin top-2 left-6">14</span>
+              <button class="w-full py-2.5 bg-blue-600 rounded-xl text-white font-bold text-xs shadow-md">
+                Sign Up
+              </button>
+            </div>
+
+            <!-- Google SSO -->
+            <div class="pt-0.5 relative">
+              <span class="callout-pin top-1 left-6">15</span>
+              <button class="w-full py-2 bg-white border border-slate-300 rounded-xl text-slate-700 font-bold text-xs flex items-center justify-center gap-2">
+                <span class="font-bold text-red-500">G</span> Continue with Google
+              </button>
+            </div>
+
+            <div class="text-center text-[10px] text-slate-500 pt-1 relative">
+              <span class="callout-pin -top-1 right-12">16</span>
+              Already have an account? <span class="font-bold text-blue-600">Sign In</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Callout Guide -->
+        <div class="flex-1 space-y-4">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-xs font-bold text-blue-600 tracking-wider uppercase">Screen E.3</span>
+            <h2 class="text-2xl font-bold text-slate-900">User Account Registration Screen</h2>
+            <p class="text-sm text-slate-600 mt-1">Gathers candidate profile details, validates password complexity, and triggers verification.</p>
+          </div>
+          <ul class="space-y-2 text-xs md:text-sm text-slate-700">
+            <li><strong>[1] Back Navigation:</strong> Returns to previous entry screen.</li>
+            <li><strong>[2] Application Brand:</strong> Visual identifier.</li>
+            <li><strong>[3] Full Name Field:</strong> Text input for examinee legal name.</li>
+            <li><strong>[4] Email Address:</strong> Email for login and Supabase account verification.</li>
+            <li><strong>[5, 7] Password / Confirm Inputs:</strong> Masked fields with active focus styling.</li>
+            <li><strong>[6, 8] Eye Toggles:</strong> Switches masking between plain text and dots.</li>
+            <li><strong>[9, 10, 11] Password Rules:</strong> Live feedback for length (≥6), numbers (0–9), and matching.</li>
+            <li><strong>[12, 13] Terms Checkbox & Link:</strong> User agreement and link to Terms modal.</li>
+            <li><strong>[14] Sign Up CTA:</strong> Submits registration and sends confirmation email.</li>
+            <li><strong>[15] Google SSO:</strong> One-tap OAuth login.</li>
+            <li><strong>[16] Sign In Route:</strong> Routes existing users to login.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- SCREEN 6: Main Examinee Dashboard -->
+    <!-- ========================================== -->
+    <div class="print-sheet p-6 md:p-8 border border-slate-200">
+      <div class="flex flex-col lg:flex-row gap-8 items-center lg:items-start">
+        
+        <!-- Phone Frame -->
+        <div class="phone-mockup shrink-0">
+          <div class="phone-notch"></div>
+          
+          <!-- Header -->
+          <div class="pt-7 px-5 flex justify-between items-center border-b border-slate-100 pb-2">
+            <div class="flex items-center gap-2 relative">
+              <span class="callout-pin -top-2 -left-2">1</span>
+              <div class="w-8 h-8 rounded-full bg-blue-100 border border-blue-300 flex items-center justify-center font-bold text-blue-700 text-xs">JD</div>
+              <div>
+                <div class="text-xs font-black text-[#14143A]">Hello, Juan!</div>
+                <div class="text-[9px] text-slate-500">Target: CSE Professional</div>
+              </div>
+            </div>
+            <div class="relative">
+              <span class="callout-pin -top-2 -right-2">2</span>
+              <span class="text-slate-400 font-bold">•••</span>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div class="px-4 py-2.5 flex-1 overflow-y-auto space-y-3 bg-[#F7F9FC]">
+            
+            <!-- Level Toggle -->
+            <div class="flex bg-slate-200 p-0.5 rounded-xl text-center text-xs font-bold relative">
+              <span class="callout-pin -top-2 left-6">3</span>
+              <div class="flex-1 py-1.5 bg-white rounded-lg shadow-sm text-blue-600">Professional</div>
+              <div class="flex-1 py-1.5 text-slate-600">Sub-Professional</div>
+            </div>
+
+            <!-- Exam Readiness Card -->
+            <div class="p-4 bg-gradient-to-br from-blue-600 to-indigo-900 rounded-2xl text-white shadow-md relative">
+              <span class="callout-pin -top-2 left-4">4</span>
+              <div class="flex justify-between items-center">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-blue-200">Exam Readiness</span>
+                <span class="callout-pin -top-2 right-2">5</span>
+                <span class="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold">Professional</span>
+              </div>
+              <div class="mt-2 flex items-baseline gap-2 relative">
+                <span class="callout-pin -top-2 left-16">6</span>
+                <span class="text-3xl font-black">74%</span>
+                <span class="text-[11px] text-blue-200">Overall Benchmark</span>
+              </div>
+              <div class="w-full bg-white/20 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div class="bg-emerald-400 h-full w-[74%]"></div>
+              </div>
+            </div>
+
+            <!-- Daily Study Goal -->
+            <div class="p-3 bg-white rounded-xl border border-slate-200 relative">
+              <span class="callout-pin -top-2 left-4">7</span>
+              <div class="flex justify-between items-center text-xs font-bold text-[#14143A]">
+                <span>Daily Question Goal</span>
+                <span class="text-blue-600">14 / 20 (70%)</span>
+              </div>
+              <div class="w-full bg-slate-100 h-1.5 rounded-full mt-2">
+                <div class="bg-blue-600 h-full w-[70%] rounded-full"></div>
+              </div>
+            </div>
+
+            <!-- Quick Metrics -->
+            <div class="grid grid-cols-2 gap-2">
+              <div class="p-2.5 bg-white rounded-xl border border-slate-200 relative">
+                <span class="callout-pin -top-2 left-2">8</span>
+                <div class="text-[10px] font-bold text-slate-500 uppercase">Mock Exams</div>
+                <div class="text-base font-black text-[#14143A] mt-0.5">4 Taken</div>
+                <div class="text-[9px] text-emerald-600 font-semibold">Best: 142/170</div>
+              </div>
+              <div class="p-2.5 bg-white rounded-xl border border-slate-200 relative">
+                <span class="callout-pin -top-2 left-2">9</span>
+                <div class="text-[10px] font-bold text-slate-500 uppercase">Topic Tests</div>
+                <div class="text-base font-black text-[#14143A] mt-0.5">18 Taken</div>
+                <div class="text-[9px] text-blue-600 font-semibold">Avg: 78%</div>
+              </div>
+            </div>
+
+            <!-- Subject Mastery -->
+            <div class="space-y-1.5 relative">
+              <span class="callout-pin -top-2 left-4">10</span>
+              <div class="text-[11px] font-bold text-slate-700 uppercase tracking-wide">Subject Mastery</div>
+              <div class="p-2.5 bg-white rounded-xl border border-slate-200 flex justify-between items-center text-xs font-bold relative">
+                <span class="callout-pin -top-2 right-2">11</span>
+                <span>Analytical Ability</span>
+                <span class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">78%</span>
+              </div>
+              <div class="p-2.5 bg-white rounded-xl border border-slate-200 flex justify-between items-center text-xs font-bold">
+                <span>Verbal Ability</span>
+                <span class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">82%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Tabs -->
+          <div class="p-2 bg-white border-t border-slate-200 flex justify-around items-center text-[10px] font-bold text-slate-500 relative">
+            <span class="callout-pin -top-2 left-8">12</span>
+            <span class="callout-pin -top-2 left-24">13</span>
+            <span class="callout-pin -top-2 right-24">14</span>
+            <span class="callout-pin -top-2 right-8">15</span>
+            <div class="text-blue-600 text-center"><div>🏠</div>Home</div>
+            <div class="text-center"><div>📝</div>Exams</div>
+            <div class="text-center"><div>📊</div>Stats</div>
+            <div class="text-center"><div>👤</div>Profile</div>
+          </div>
+        </div>
+
+        <!-- Callout Guide -->
+        <div class="flex-1 space-y-4">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-xs font-bold text-blue-600 tracking-wider uppercase">Screen E.6</span>
+            <h2 class="text-2xl font-bold text-slate-900">Main Examinee Dashboard</h2>
+            <p class="text-sm text-slate-600 mt-1">Central study cockpit offering readiness percentages, daily goal progress, and topic breakdowns.</p>
+          </div>
+          <ul class="space-y-2 text-xs md:text-sm text-slate-700">
+            <li><strong>[1] Examinee Header:</strong> Shows active avatar and civil service track.</li>
+            <li><strong>[2] Overflow Action Menu:</strong> Access to reset data and logout.</li>
+            <li><strong>[3] Level Switcher:</strong> Instant toggle between Professional and Sub-Professional.</li>
+            <li><strong>[4, 5, 6] Exam Readiness Card:</strong> Weighted diagnostic readiness percentage.</li>
+            <li><strong>[7] Daily Question Target:</strong> Real-time progress bar tracking daily practice goal.</li>
+            <li><strong>[8] Mock Summary Tile:</strong> Full mock exam count and personal best score.</li>
+            <li><strong>[9] Tests Summary Tile:</strong> Topic tests count and cumulative average score.</li>
+            <li><strong>[10, 11] Subject Mastery:</strong> Expandable list showing readiness across subjects.</li>
+            <li><strong>[12–15] Persistent Bottom Bar:</strong> Fast navigation across Home, Exams, Stats, and Profile tabs.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- SCREEN 9: Interactive Exam Interface -->
+    <!-- ========================================== -->
+    <div class="print-sheet p-6 md:p-8 border border-slate-200">
+      <div class="flex flex-col lg:flex-row gap-8 items-center lg:items-start">
+        
+        <!-- Phone Frame -->
+        <div class="phone-mockup shrink-0">
+          <div class="phone-notch"></div>
+          
+          <!-- Exam Header -->
+          <div class="pt-7 px-4 flex justify-between items-center border-b border-slate-100 pb-2">
+            <div class="relative">
+              <span class="callout-pin -top-2 -left-2">1</span>
+              <span class="text-red-500 font-bold text-xs">✕ Quit</span>
+            </div>
+            <div class="text-xs font-black text-[#14143A] relative">
+              <span class="callout-pin -top-2 -left-6">2</span>
+              Verbal Ability
+            </div>
+            <div class="relative">
+              <span class="callout-pin -top-2 -right-2">3</span>
+              <span class="px-2 py-0.5 bg-slate-100 rounded text-xs font-bold">▦ Grid</span>
+            </div>
+          </div>
+
+          <!-- Progress & Timer -->
+          <div class="px-4 py-2 bg-slate-50 border-b border-slate-100 flex justify-between items-center text-xs">
+            <div class="font-bold text-slate-600 relative">
+              <span class="callout-pin -top-2 -left-3">4</span>
+              Q 14 of 30
+            </div>
+            <div class="font-black text-blue-600 relative flex items-center gap-1">
+              <span class="callout-pin -top-2 -right-3">5</span>
+              ⏱ 24:18
+            </div>
+          </div>
+
+          <!-- Question Body -->
+          <div class="p-4 flex-1 overflow-y-auto space-y-3">
+            <div class="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-xs text-[#14143A] leading-relaxed relative">
+              <span class="callout-pin -top-2 -left-2">6</span>
+              Which of the following words is most opposite in meaning to the capitalized word <strong>"EPHEMERAL"</strong>?
+              <div class="mt-2 text-right relative">
+                <span class="callout-pin -top-2 right-12">7</span>
+                <span class="text-blue-600 font-bold text-xs bg-white px-2 py-1 rounded-md border border-blue-200">🔊 Read</span>
+              </div>
+            </div>
+
+            <!-- Choices -->
+            <div class="space-y-2">
+              <div class="p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 relative">
+                <span class="callout-pin -top-2 -left-2">8</span>
+                <span class="font-bold text-blue-600 mr-2">A.</span> Transient
+              </div>
+              <div class="p-2.5 bg-blue-50 border-2 border-blue-600 rounded-xl text-xs font-bold text-blue-900 relative">
+                <span class="callout-pin -top-2 -left-2">9</span>
+                <span class="font-bold text-blue-600 mr-2">B.</span> Permanent
+              </div>
+              <div class="p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 relative">
+                <span class="callout-pin -top-2 -left-2">10</span>
+                <span class="font-bold text-blue-600 mr-2">C.</span> Fleeting
+              </div>
+              <div class="p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 relative">
+                <span class="callout-pin -top-2 -left-2">11</span>
+                <span class="font-bold text-blue-600 mr-2">D.</span> Momentary
+              </div>
+            </div>
+
+            <!-- Explanation (Review Mode) -->
+            <div class="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 relative">
+              <span class="callout-pin -top-2 -left-2">12</span>
+              <strong>Correct Answer: B (Permanent)</strong><br>
+              "Ephemeral" denotes something short-lived; its direct antonym is permanent.
+            </div>
+          </div>
+
+          <!-- Bottom Actions -->
+          <div class="p-3 bg-white border-t border-slate-200 flex gap-2 relative">
+            <span class="callout-pin -top-2 left-6">13</span>
+            <button class="flex-1 py-2.5 bg-slate-100 rounded-xl text-xs font-bold text-slate-700">Previous</button>
+            <span class="callout-pin -top-2 right-6">14</span>
+            <button class="flex-1 py-2.5 bg-blue-600 rounded-xl text-xs font-bold text-white shadow-sm">Next</button>
+          </div>
+        </div>
+
+        <!-- Callout Guide -->
+        <div class="flex-1 space-y-4">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-xs font-bold text-blue-600 tracking-wider uppercase">Screen E.9</span>
+            <h2 class="text-2xl font-bold text-slate-900">Interactive Exam Question Interface</h2>
+            <p class="text-sm text-slate-600 mt-1">Core test-taking viewport supporting multiple choice selection, countdown timing, and text-to-speech audio.</p>
+          </div>
+          <ul class="space-y-2 text-xs md:text-sm text-slate-700">
+            <li><strong>[1] Quit Exam (X):</strong> Aborts test session with confirm prompt.</li>
+            <li><strong>[2] Subject Category Tag:</strong> Identifies the active test section.</li>
+            <li><strong>[3] Question Grid Modal:</strong> Opens full question matrix.</li>
+            <li><strong>[4] Question Tracker:</strong> Displays index and progress.</li>
+            <li><strong>[5] Countdown Timer:</strong> Real-time clock with low-time alert.</li>
+            <li><strong>[6] Question Stem:</strong> Formatted problem statement or passage.</li>
+            <li><strong>[7] Audio Reader Button:</strong> Text-to-Speech narration.</li>
+            <li><strong>[8–11] Option Radios (A, B, C, D):</strong> Tap targets for selecting choices.</li>
+            <li><strong>[12] Instant Explanation:</strong> Live answer key and rationale in Review Mode.</li>
+            <li><strong>[13] Previous Button:</strong> Navigates to preceding question.</li>
+            <li><strong>[14] Next / Submit Button:</strong> Advances or opens final submission dialog.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- SCREEN 13: Exam Result Screen -->
+    <!-- ========================================== -->
+    <div class="print-sheet p-6 md:p-8 border border-slate-200">
+      <div class="flex flex-col lg:flex-row gap-8 items-center lg:items-start">
+        
+        <!-- Phone Frame -->
+        <div class="phone-mockup shrink-0">
+          <div class="phone-notch"></div>
+          
+          <div class="pt-7 px-4 flex justify-between items-center border-b border-slate-100 pb-2">
+            <div class="relative">
+              <span class="callout-pin -top-2 -left-2">1</span>
+              <span class="text-blue-600 font-bold text-xs">‹ Done</span>
+            </div>
+            <span class="text-xs font-black text-[#14143A]">Exam Diagnostics</span>
+          </div>
+
+          <div class="p-4 flex-1 overflow-y-auto space-y-3 bg-[#F7F9FC]">
+            
+            <!-- Result Banner -->
+            <div class="p-4 bg-gradient-to-br from-emerald-500 to-teal-700 rounded-2xl text-white text-center shadow-md relative">
+              <span class="callout-pin -top-2 left-6">2</span>
+              <div class="text-4xl font-black">86%</div>
+              <div class="text-xs font-extrabold uppercase tracking-widest mt-1 bg-white/20 inline-block px-3 py-0.5 rounded-full">PASSED</div>
+              <p class="text-[11px] text-emerald-100 mt-1">Great job! You met the 80% CSC threshold!</p>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="p-2.5 bg-white rounded-xl border border-slate-200 relative">
+                <span class="callout-pin -top-2 left-2">3</span>
+                <span class="text-[10px] text-slate-500 font-bold uppercase">Correct</span>
+                <div class="text-base font-black text-emerald-600">26 Items</div>
+              </div>
+              <div class="p-2.5 bg-white rounded-xl border border-slate-200 relative">
+                <span class="callout-pin -top-2 left-2">4</span>
+                <span class="text-[10px] text-slate-500 font-bold uppercase">Wrong</span>
+                <div class="text-base font-black text-red-500">4 Items</div>
+              </div>
+              <div class="p-2.5 bg-white rounded-xl border border-slate-200 relative">
+                <span class="callout-pin -top-2 left-2">5</span>
+                <span class="text-[10px] text-slate-500 font-bold uppercase">Time Elapsed</span>
+                <div class="text-sm font-black text-[#14143A]">18m 42s</div>
+              </div>
+              <div class="p-2.5 bg-white rounded-xl border border-slate-200 relative">
+                <span class="callout-pin -top-2 left-2">6</span>
+                <span class="text-[10px] text-slate-500 font-bold uppercase">Benchmark</span>
+                <div class="text-sm font-black text-blue-600">80% Req.</div>
+              </div>
+            </div>
+
+            <!-- Breakdown -->
+            <div class="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 relative">
+              <span class="callout-pin -top-2 left-4">7</span>
+              <div class="text-[10px] font-bold text-slate-500 uppercase">Sub-Topic Performance</div>
+              <div class="flex justify-between items-center text-xs">
+                <span>Word Analogy</span>
+                <span class="font-bold text-emerald-600">10/10 (100%)</span>
+              </div>
+              <div class="flex justify-between items-center text-xs">
+                <span>Abstract Reasoning</span>
+                <span class="font-bold text-emerald-600">8/10 (80%)</span>
+              </div>
+              <div class="flex justify-between items-center text-xs">
+                <span>Logical Deduction</span>
+                <span class="font-bold text-emerald-600">8/10 (80%)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Actions -->
+          <div class="p-4 bg-white border-t border-slate-200 space-y-2 relative">
+            <div class="relative">
+              <span class="callout-pin -top-2 left-6">8</span>
+              <button class="w-full py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-sm">Review All Answers</button>
+            </div>
+            <div class="relative">
+              <span class="callout-pin -top-2 left-6">9</span>
+              <button class="w-full py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700">Retake Exam</button>
+            </div>
+            <div class="relative">
+              <span class="callout-pin -top-2 left-6">10</span>
+              <button class="w-full py-1.5 text-center text-xs font-bold text-slate-500">Return to Dashboard</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Callout Guide -->
+        <div class="flex-1 space-y-4">
+          <div class="border-b border-slate-200 pb-3">
+            <span class="text-xs font-bold text-blue-600 tracking-wider uppercase">Screen E.13</span>
+            <h2 class="text-2xl font-bold text-slate-900">Exam Diagnostic Result Screen</h2>
+            <p class="text-sm text-slate-600 mt-1">Presents overall score, official pass/fail status, and diagnostic sub-topic breakdown.</p>
+          </div>
+          <ul class="space-y-2 text-xs md:text-sm text-slate-700">
+            <li><strong>[1] Done Navigation:</strong> Direct exit to Home tab.</li>
+            <li><strong>[2] Result Banner:</strong> Percentage score and pass/fail indicator.</li>
+            <li><strong>[3, 4] Accuracy Metrics:</strong> Count of correct and wrong responses.</li>
+            <li><strong>[5] Time Elapsed:</strong> Total duration of test attempt.</li>
+            <li><strong>[6] CSC Benchmark:</strong> 80% passing grade requirement.</li>
+            <li><strong>[7] Sub-Topic Analysis:</strong> Itemized breakdown highlighting strengths and weaknesses.</li>
+            <li><strong>[8] Review Answers CTA:</strong> Directs candidate to the rationales screen.</li>
+            <li><strong>[9] Retake Exam CTA:</strong> Starts a new practice session.</li>
+            <li><strong>[10] Dashboard Route:</strong> Returns to main screen.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="mt-16 text-center text-xs text-slate-500 pb-8">
+    APEX-CS Capstone Project Manuscript — Pangasinan State University &copy; 2026
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APEX-CS: Appendix F - Source Code Listings</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-jsx.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0B1120;
+      color: #E2E8F0;
+    }
+
+    code, pre {
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 13px !important;
+      line-height: 1.6 !important;
+    }
+
+    .code-container {
+      background: #0F172A;
+      border: 1px solid #1E293B;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+    }
+
+    .code-header {
+      background: #1E293B;
+      border-bottom: 1px solid #334155;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .print-sheet {
+      background: #FFFFFF;
+      color: #1E293B;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+
+    @media print {
+      body {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .code-container {
+        border: 1px solid #CBD5E1 !important;
+        background: #F8FAFC !important;
+        color: #0F172A !important;
+      }
+      pre {
+        background: #F8FAFC !important;
+        color: #0F172A !important;
+      }
+    }
+  </style>
+</head>
+<body class="p-6 md:p-12">
+
+  <!-- Header Banner -->
+  <div class="max-w-6xl mx-auto mb-12 text-center">
+    <div class="inline-block px-4 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-full text-blue-400 font-semibold text-xs tracking-wider uppercase mb-3">
+      Pangasinan State University — Capstone Project
+    </div>
+    <h1 class="text-3xl md:text-5xl font-extrabold text-white tracking-tight mb-2">
+      Appendix F: Source Code Listings
+    </h1>
+    <p class="text-slate-400 max-w-2xl mx-auto text-sm md:text-base">
+      Key software algorithms, mathematical analytics modules, and architectural controllers for <strong class="text-white">APEX-CS: Assessment & Practice Exam for Civil Service</strong>.
+    </p>
+    <div class="mt-4 flex flex-wrap justify-center gap-3 no-print">
+      <button onclick="window.print()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm rounded-lg transition-all shadow-lg flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+        Print / Save to PDF
+      </button>
+      <a href="#module-1" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs md:text-sm rounded-lg transition-all border border-slate-700">
+        Module 1: Curriculum & Weights
+      </a>
+      <a href="#module-2" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs md:text-sm rounded-lg transition-all border border-slate-700">
+        Module 2: Analytics & Readiness
+      </a>
+      <a href="#module-3" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs md:text-sm rounded-lg transition-all border border-slate-700">
+        Module 3: Question Sampler
+      </a>
+      <a href="#module-4" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs md:text-sm rounded-lg transition-all border border-slate-700">
+        Module 4: Exam Controller
+      </a>
+    </div>
+  </div>
+
+  <div class="max-w-6xl mx-auto space-y-12">
+
+    <!-- ========================================== -->
+    <!-- MODULE 1: Curriculum & Weights Blueprint -->
+    <!-- ========================================== -->
+    <div id="module-1" class="print-sheet p-6 md:p-8 border border-slate-200">
+      <div class="border-b border-slate-200 pb-4 mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-xs font-bold text-blue-600 uppercase tracking-widest">Listing F-1</span>
+            <h2 class="text-xl md:text-2xl font-bold text-slate-900 mt-1">Civil Service Curriculum Blueprint & Weight Matrix</h2>
+          </div>
+          <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-mono font-medium">lib/curriculum.js</span>
+        </div>
+        <p class="text-sm text-slate-600 mt-2">
+          Defines the 3-tier hierarchy (Exam Level &rarr; Category &rarr; Chapter) along with the official pass threshold (80%) and curriculum weights: Analytical Ability (35%), Numerical Ability (30%), Verbal Ability (30%), and General Information (5%).
+        </p>
+      </div>
+
+      <div class="code-container">
+        <div class="code-header">
+          <div class="flex items-center space-x-2">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+            <span class="text-xs font-mono text-slate-400 ml-2">lib/curriculum.js</span>
+          </div>
+          <button onclick="copyCode('code-1')" class="no-print text-xs text-blue-400 hover:text-blue-300 font-medium">Copy Code</button>
+        </div>
+        <pre class="p-4 overflow-x-auto"><code id="code-1" class="language-javascript">/**
+ * APEX-CS Civil Service Examination Curriculum Configuration
+ *
+ * Defines the 3-tier hierarchy:
+ * Exam Level (Professional / Sub-Professional)
+ *   └── Category (Subject)
+ *         └── Chapter (Topic)
+ */
+
+export const PASS_THRESHOLD = 80;
+export const WEAK_THRESHOLD = 70;
+
+export const EXAM_LEVELS = {
+  professional: {
+    key: "professional",
+    label: "Professional Level",
+    shortLabel: "Professional",
+    totalItems: 170,
+    durationHours: 3,
+    passingScore: 80,
+    description: "For positions requiring a college degree. Grants 2nd-level eligibility.",
+  },
+  sub: {
+    key: "sub",
+    label: "Sub-Professional Level",
+    shortLabel: "Sub-Professional",
+    totalItems: 165,
+    durationHours: 2,
+    passingScore: 80,
+    description: "For clerical and trades positions. Grants 1st-level eligibility.",
+  },
+};
+
+export const CURRICULUM = {
+  professional: [
+    {
+      id: "prof_analytical",
+      title: "Analytical Ability",
+      shortTitle: "Analytical",
+      subtitle: "Reasoning, Logic & Data Interpretation",
+      estimatedWeight: 0.35, // ~35% of total exam
+      estimatedWeightLabel: "~35% Estimated Exam Coverage",
+      chapters: [
+        { id: "word_analogy", title: "Word Analogy" },
+        { id: "symbolic_logic", title: "Symbolic Logic & Abstract Reasoning" },
+        { id: "assumptions_conclusions", title: "Assumptions & Conclusions" },
+        { id: "data_interpretation", title: "Data Interpretation" },
+      ],
+    },
+    {
+      id: "prof_numerical",
+      title: "Numerical Ability",
+      shortTitle: "Numerical",
+      subtitle: "Basic Operations, Number Sequences & Problems",
+      estimatedWeight: 0.30, // ~30% of total exam
+      estimatedWeightLabel: "~30% Estimated Exam Coverage",
+      chapters: [
+        { id: "basic_operations", title: "Basic Operations" },
+        { id: "number_sequence", title: "Number Sequence" },
+        { id: "word_problems", title: "Word Problems" },
+      ],
+    },
+    {
+      id: "prof_verbal",
+      title: "Verbal Ability",
+      shortTitle: "Verbal",
+      subtitle: "Word Meaning, Grammar & Reading",
+      estimatedWeight: 0.30, // ~30% of total exam
+      estimatedWeightLabel: "~30% Estimated Exam Coverage",
+      chapters: [
+        { id: "word_meaning", title: "Word Meaning" },
+        { id: "sentence_completion", title: "Sentence Completion" },
+        { id: "error_recognition", title: "Error Recognition" },
+        { id: "sentence_structure", title: "Sentence Structure" },
+        { id: "paragraph_organization", title: "Paragraph Organization" },
+        { id: "reading_comprehension", title: "Reading Comprehension" },
+      ],
+    },
+    {
+      id: "prof_geninfo",
+      title: "General Information",
+      shortTitle: "General Info",
+      subtitle: "Philippine Constitution, Laws & Environment",
+      estimatedWeight: 0.05, // ~5% of total exam
+      estimatedWeightLabel: "~5% Estimated Exam Coverage",
+      chapters: [
+        { id: "philippine_constitution", title: "Philippine Constitution" },
+        { id: "code_of_conduct_ra6713", title: "Code of Conduct / R.A. 6713" },
+        { id: "peace_human_rights", title: "Peace & Human Rights Concepts" },
+        { id: "environmental_management", title: "Environmental Protection" },
+      ],
+    },
+  ],
+  sub: [
+    {
+      id: "sub_clerical",
+      title: "Clerical Ability",
+      estimatedWeight: 0.20,
+      chapters: [
+        { id: "filing", title: "Filing" },
+        { id: "spelling", title: "Spelling" },
+      ],
+    },
+    {
+      id: "sub_numerical",
+      title: "Numerical Ability",
+      estimatedWeight: 0.30,
+      chapters: [
+        { id: "basic_operations", title: "Basic Operations" },
+        { id: "number_sequence", title: "Number Sequence" },
+        { id: "word_problems", title: "Word Problems" },
+      ],
+    },
+    {
+      id: "sub_verbal",
+      title: "Verbal Ability",
+      estimatedWeight: 0.30,
+      chapters: [
+        { id: "word_meaning", title: "Word Meaning" },
+        { id: "sentence_completion", title: "Sentence Completion" },
+        { id: "error_recognition", title: "Error Recognition" },
+        { id: "reading_comprehension", title: "Reading Comprehension" },
+      ],
+    },
+    {
+      id: "sub_geninfo",
+      title: "General Information",
+      estimatedWeight: 0.05,
+      chapters: [
+        { id: "philippine_constitution", title: "Philippine Constitution" },
+        { id: "code_of_conduct_ra6713", title: "Code of Conduct / R.A. 6713" },
+      ],
+    },
+  ],
+};</code></pre>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODULE 2: Analytics & Weighted Readiness -->
+    <!-- ========================================== -->
+    <div id="module-2" class="print-sheet p-6 md:p-8 border border-slate-200">
+      <div class="border-b border-slate-200 pb-4 mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-xs font-bold text-blue-600 uppercase tracking-widest">Listing F-2</span>
+            <h2 class="text-xl md:text-2xl font-bold text-slate-900 mt-1">Weighted Exam Readiness & Category Mastery Engine</h2>
+          </div>
+          <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-mono font-medium">lib/attempts.js</span>
+        </div>
+        <p class="text-sm text-slate-600 mt-2">
+          Computes cumulative Category Mastery, Chapter Mastery, and the true Weighted Curriculum Readiness index based on CSC exam coverage formulas: \(\text{Readiness} = \sum (\text{Mastery}_i \times \text{Weight}_i)\).
+        </p>
+      </div>
+
+      <div class="code-container">
+        <div class="code-header">
+          <div class="flex items-center space-x-2">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+            <span class="text-xs font-mono text-slate-400 ml-2">lib/attempts.js (Core Analytics Functions)</span>
+          </div>
+          <button onclick="copyCode('code-2')" class="no-print text-xs text-blue-400 hover:text-blue-300 font-medium">Copy Code</button>
+        </div>
+        <pre class="p-4 overflow-x-auto"><code id="code-2" class="language-javascript">/**
+ * Computes Dashboard Summary, Subject Performance, Chapter Mastery, and Weak Areas.
+ * Professional and Sub-Professional levels are kept strictly separated.
+ */
+export async function getDashboardSummary(selectedLevel = "professional") {
+  const normLevel = selectedLevel === "sub" ? "sub" : "professional";
+  const allAttempts = await getAttemptHistory();
+
+  // Filter attempts strictly for the active exam level
+  const attempts = allAttempts.filter(
+    (attempt) => attempt.level === normLevel
+  );
+
+  const curriculumCategories = getCurriculum(normLevel);
+  const categoryMap = {};
+
+  curriculumCategories.forEach((cat) => {
+    categoryMap[cat.title] = {
+      title: cat.title,
+      estimatedWeight: cat.estimatedWeight,
+      correct: 0,
+      wrong: 0,
+      total: 0,
+      chapters: {},
+    };
+
+    cat.chapters.forEach((ch) => {
+      categoryMap[cat.title].chapters[ch.title] = {
+        title: ch.title,
+        correct: 0,
+        wrong: 0,
+        total: 0,
+      };
+    });
+  });
+
+  // Aggregate questions across all attempts for this level
+  attempts.forEach((attempt) => {
+    const breakdown = attempt.subject_breakdown || [];
+    breakdown.forEach((subj) => {
+      if (!subj?.title) return;
+      const matchedCat = Object.keys(categoryMap).find(
+        (t) => t.toLowerCase() === subj.title.trim().toLowerCase()
+      );
+      if (!matchedCat) return;
+
+      const catObj = categoryMap[matchedCat];
+      catObj.correct += Number(subj.correct ?? 0);
+      catObj.wrong += Number(subj.wrong ?? 0);
+      catObj.total += Number(subj.total ?? 0);
+
+      if (Array.isArray(subj.chapters)) {
+        subj.chapters.forEach((ch) => {
+          if (!ch?.title) return;
+          const matchedChap = Object.keys(catObj.chapters).find(
+            (t) => t.toLowerCase() === ch.title.trim().toLowerCase()
+          );
+          if (matchedChap) {
+            catObj.chapters[matchedChap].correct += Number(ch.correct ?? 0);
+            catObj.chapters[matchedChap].wrong += Number(ch.wrong ?? 0);
+            catObj.chapters[matchedChap].total += Number(ch.total ?? 0);
+          }
+        });
+      }
+    });
+  });
+
+  // Calculate Category and Chapter Mastery Percentages
+  const subjectReadiness = curriculumCategories.map((cat) => {
+    const catData = categoryMap[cat.title];
+    const catPercent =
+      catData.total > 0
+        ? Math.round((catData.correct / catData.total) * 100)
+        : null;
+
+    const chapters = cat.chapters.map((ch) => {
+      const chData = catData.chapters[ch.title];
+      const chPercent =
+        chData.total > 0
+          ? Math.round((chData.correct / chData.total) * 100)
+          : null;
+      return {
+        title: ch.title,
+        percent: chPercent,
+        totalAttempted: chData.total,
+        totalCorrect: chData.correct,
+      };
+    });
+
+    return {
+      title: cat.title,
+      estimatedWeight: cat.estimatedWeight,
+      percent: catPercent,
+      totalAttempted: catData.total,
+      totalCorrect: catData.correct,
+      chapters,
+    };
+  });
+
+  // Calculate True Weighted Curriculum Readiness:
+  // Each category contributes according to its official exam weight:
+  // e.g. Analytical 35%, Numerical 30%, Verbal 30%, General Information 5%.
+  let weightedReadiness = 0;
+  subjectReadiness.forEach((cat) => {
+    const weight = Number(cat.estimatedWeight || 0);
+    const scorePercent = cat.percent !== null ? Number(cat.percent || 0) : 0;
+    weightedReadiness += scorePercent * weight;
+  });
+
+  const examReadiness = Math.min(100, Math.round(weightedReadiness));
+
+  return {
+    examsTaken: attempts.length,
+    examReadiness,
+    subjectReadiness,
+  };
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODULE 3: Stratified Question Sampler -->
+    <!-- ========================================== -->
+    <div id="module-3" class="print-sheet p-6 md:p-8 border border-slate-200">
+      <div class="border-b border-slate-200 pb-4 mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-xs font-bold text-blue-600 uppercase tracking-widest">Listing F-3</span>
+            <h2 class="text-xl md:text-2xl font-bold text-slate-900 mt-1">Stratified Question Sampler & Limiter Engine</h2>
+          </div>
+          <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-mono font-medium">lib/examData.js</span>
+        </div>
+        <p class="text-sm text-slate-600 mt-2">
+          Performs stratified proportional sampling across all subject pools when building full mock exams or filtered multi-category practice sets, enforcing exact item quotas with Fisher-Yates randomization.
+        </p>
+      </div>
+
+      <div class="code-container">
+        <div class="code-header">
+          <div class="flex items-center space-x-2">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+            <span class="text-xs font-mono text-slate-400 ml-2">lib/examData.js (Sampling Algorithms)</span>
+          </div>
+          <button onclick="copyCode('code-3')" class="no-print text-xs text-blue-400 hover:text-blue-300 font-medium">Copy Code</button>
+        </div>
+        <pre class="p-4 overflow-x-auto"><code id="code-3" class="language-javascript">/**
+ * Samples questions proportionally across curriculum categories to match target exam limits.
+ */
+function sampleExamQuestions(questions, level = "professional", targetLimit = 170) {
+  if (!questions || questions.length <= targetLimit) {
+    return shuffleArray(questions || []);
+  }
+
+  const normLevel = level === "sub" ? "sub" : "professional";
+  const curriculumCats = getCurriculum(normLevel);
+
+  // Group questions by category
+  const poolByCat = {};
+  curriculumCats.forEach((c) => {
+    poolByCat[c.title.toLowerCase()] = [];
+  });
+  const unclassifiedPool = [];
+
+  questions.forEach((q) => {
+    const key = (q.subjectTitle || "").trim().toLowerCase();
+    const matchedKey = Object.keys(poolByCat).find(
+      (k) => k === key || key.includes(k) || k.includes(key)
+    );
+    if (matchedKey) {
+      poolByCat[matchedKey].push(q);
+    } else {
+      unclassifiedPool.push(q);
+    }
+  });
+
+  const selectedQuestions = [];
+  const remainingQuestions = [...unclassifiedPool];
+
+  // Sample each category proportionally according to its curriculum weight
+  curriculumCats.forEach((cat) => {
+    const catKey = cat.title.toLowerCase();
+    const catPool = shuffleArray(poolByCat[catKey] || []);
+    const weight = cat.estimatedWeight || 1 / curriculumCats.length;
+    const catQuota = Math.round(targetLimit * weight);
+
+    const picked = catPool.slice(0, catQuota);
+    const leftOver = catPool.slice(catQuota);
+
+    selectedQuestions.push(...picked);
+    remainingQuestions.push(...leftOver);
+  });
+
+  // Backfill if rounding deficit occurs
+  if (selectedQuestions.length < targetLimit && remainingQuestions.length > 0) {
+    const deficit = targetLimit - selectedQuestions.length;
+    const shuffledRemaining = shuffleArray(remainingQuestions);
+    selectedQuestions.push(...shuffledRemaining.slice(0, deficit));
+  }
+
+  const finalSet =
+    selectedQuestions.length > targetLimit
+      ? selectedQuestions.slice(0, targetLimit)
+      : selectedQuestions;
+
+  // Final Fisher-Yates shuffle across mixed subjects
+  return shuffleArray(finalSet);
+}
+
+export function shuffleArray(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODULE 4: Question Count Slider Component -->
+    <!-- ========================================== -->
+    <div id="module-4" class="print-sheet p-6 md:p-8 border border-slate-200">
+      <div class="border-b border-slate-200 pb-4 mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-xs font-bold text-blue-600 uppercase tracking-widest">Listing F-4</span>
+            <h2 class="text-xl md:text-2xl font-bold text-slate-900 mt-1">Interactive Question Count Slider Component</h2>
+          </div>
+          <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-mono font-medium">components/QuestionCountSlider.jsx</span>
+        </div>
+        <p class="text-sm text-slate-600 mt-2">
+          Provides a touch-responsive stepped slider and tactile preset pills (10-15-25 for subcategories, 20-30-40 for categories, 20-30-50 for all categories), dynamically adjusting countdown timer limits.
+        </p>
+      </div>
+
+      <div class="code-container">
+        <div class="code-header">
+          <div class="flex items-center space-x-2">
+            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+            <span class="text-xs font-mono text-slate-400 ml-2">components/QuestionCountSlider.jsx</span>
+          </div>
+          <button onclick="copyCode('code-4')" class="no-print text-xs text-blue-400 hover:text-blue-300 font-medium">Copy Code</button>
+        </div>
+        <pre class="p-4 overflow-x-auto"><code id="code-4" class="language-jsx">import React, { useRef, useState, useMemo, useCallback } from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+
+export function getEstimatedMinutes(count) {
+  if (!count || count <= 0) return 0;
+  if (count <= 10) return 15;
+  if (count <= 15) return 20;
+  if (count <= 20) return 25;
+  if (count <= 25) return 35;
+  if (count <= 30) return 40;
+  if (count <= 40) return 50;
+  if (count <= 50) return 60;
+  return Math.round(count * 1.3);
+}
+
+export default function QuestionCountSlider({
+  value,
+  onChange,
+  options = [10, 15, 25],
+  variant = "light",
+  mode = "timed",
+}) {
+  const isDark = variant === "dark";
+  const [trackWidth, setTrackWidth] = useState(0);
+  const trackRef = useRef(null);
+
+  const safeOptions = useMemo(
+    () => (options && options.length > 0 ? options : [10, 15, 25]),
+    [options]
+  );
+  const currentIndex = Math.max(0, safeOptions.findIndex((opt) => opt === value));
+  const selectedCount = safeOptions[currentIndex] ?? safeOptions[0];
+
+  const handleSelectIndex = useCallback((idx) => {
+    const clamped = Math.max(0, Math.min(safeOptions.length - 1, idx));
+    if (safeOptions[clamped] !== value) {
+      onChange(safeOptions[clamped]);
+    }
+  }, [safeOptions, value, onChange]);
+
+  const handleTrackTouch = useCallback((pageX) => {
+    if (!trackRef.current || trackWidth <= 0) return;
+    trackRef.current.measure((x, y, width, height, absX) => {
+      const touchX = pageX - absX;
+      const ratio = Math.max(0, Math.min(1, touchX / width));
+      const targetIndex = Math.round(ratio * (safeOptions.length - 1));
+      handleSelectIndex(targetIndex);
+    });
+  }, [trackWidth, safeOptions, handleSelectIndex]);
+
+  const progressRatio = safeOptions.length > 1 ? currentIndex / (safeOptions.length - 1) : 0;
+  const estimatedMins = getEstimatedMinutes(selectedCount);
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.headerRow}>
+        <View style={styles.titleGroup}>
+          <Ionicons name="list-outline" size={18} color={isDark ? "#93C5FD" : "#386BF6"} />
+          <Text style={[styles.title, isDark ? styles.textDark : styles.textLight]}>Question Count</Text>
+        </View>
+        <View style={[styles.badge, isDark ? styles.badgeDark : styles.badgeLight]}>
+          <Text style={[styles.badgeText, isDark ? styles.badgeTextDark : styles.badgeTextLight]}>
+            {selectedCount} Questions
+          </Text>
+        </View>
+      </View>
+
+      {/* Stepped Interactive Slider Track */}
+      <View
+        ref={trackRef}
+        style={styles.trackTouchArea}
+        onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={(evt) => handleTrackTouch(evt.nativeEvent.pageX)}
+        onResponderMove={(evt) => handleTrackTouch(evt.nativeEvent.pageX)}
+      >
+        <View style={[styles.trackBg, isDark ? styles.trackBgDark : styles.trackBgLight]}>
+          <View style={[styles.trackFill, { width: `${progressRatio * 100}%` }, isDark ? styles.trackFillDark : styles.trackFillLight]} />
+        </View>
+        <View style={[styles.thumb, { left: `${progressRatio * 100}%` }, isDark ? styles.thumbDark : styles.thumbLight]} pointerEvents="none" />
+      </View>
+
+      {/* Preset Value Pills */}
+      <View style={styles.pillsRow}>
+        {safeOptions.map((opt, idx) => (
+          <TouchableOpacity
+            key={opt}
+            style={[styles.pill, isDark ? styles.pillDark : styles.pillLight, idx === currentIndex && (isDark ? styles.pillSelectedDark : styles.pillSelectedLight)]}
+            onPress={() => handleSelectIndex(idx)}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+          >
+            <Text style={[styles.pillText, isDark ? styles.pillTextDark : styles.pillTextLight, idx === currentIndex && (isDark ? styles.pillTextSelectedDark : styles.pillTextSelectedLight)]}>
+              {opt} Items
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}</code></pre>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function copyCode(elementId) {
+      const codeElement = document.getElementById(elementId);
+      navigator.clipboard.writeText(codeElement.innerText).then(() => {
+        alert("Source code copied to clipboard!");
+      });
+    }
+  </script>
+</body>
+</html>
