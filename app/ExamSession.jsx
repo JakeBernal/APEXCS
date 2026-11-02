@@ -333,6 +333,7 @@ export default function ExamSession({
 
       <QuitExamModal
         visible={showQuitModal}
+        onContinue={() => setShowQuitModal(false)}
         onCancel={() => setShowQuitModal(false)}
         onQuit={handleQuitConfirm}
       />

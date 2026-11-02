@@ -2,7 +2,8 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-export default function QuitExamModal({ visible, onContinue, onQuit }) {
+export default function QuitExamModal({ visible, onContinue, onCancel, onQuit }) {
+  const handleContinue = onContinue || onCancel;
   if (!visible) return null;
 
   return (
@@ -10,7 +11,7 @@ export default function QuitExamModal({ visible, onContinue, onQuit }) {
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onContinue}
+      onRequestClose={handleContinue}
     >
       <View style={styles.overlay}>
         <View style={styles.card}>
@@ -29,7 +30,7 @@ export default function QuitExamModal({ visible, onContinue, onQuit }) {
           <View style={styles.btnColumn}>
             <TouchableOpacity
               style={styles.continueBtn}
-              onPress={onContinue}
+              onPress={handleContinue}
               activeOpacity={0.8}
             >
               <Text style={styles.continueText}>Continue Exam</Text>

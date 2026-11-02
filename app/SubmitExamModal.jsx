@@ -18,7 +18,7 @@ export default function SubmitExamModal({ visible, onCancel, onSubmit, onQuit })
 
         <Text style={styles.title}>Submit Exam?</Text>
         <Text style={styles.subtitle}>
-          Unanswered questions will be marked as skipped. You can't undo this.
+          Unanswered questions will be marked as skipped. {"You can't undo this."}
         </Text>
 
         <View style={styles.row}>
