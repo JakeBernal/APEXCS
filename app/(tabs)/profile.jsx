@@ -88,6 +88,7 @@ function CalendarPicker({ visible, initialDate, onClose, onSelect }) {
   useEffect(() => {
     if (visible) {
       const d = initialDate ? new Date(initialDate) : new Date();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setViewYear(d.getFullYear());
       setViewMonth(d.getMonth());
     }
@@ -640,6 +641,7 @@ function StudyRemindersModal({
 
   useEffect(() => {
     if (visible && initialSettings) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEnabled(initialSettings.enabled ?? true);
       setSelectedDays(
         initialSettings.days || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -728,12 +730,10 @@ function StudyRemindersModal({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} style={reminderStyles.scrollArea}>
-            {/* Today's Practice Task Summary */}
+            {/* {"Today's Practice Task"} Summary */}
             <View style={reminderStyles.todayProgressCard}>
               <View style={reminderStyles.todayProgressHeader}>
-                <Text style={reminderStyles.todayProgressTitle}>
-                  Today's Practice Task
-                </Text>
+                <Text style={reminderStyles.todayProgressTitle}>{"Today's Practice Task"}</Text>
                 <Text style={reminderStyles.todayProgressVal}>
                   {completedCount} out of {goal} questions
                 </Text>

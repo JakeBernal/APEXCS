@@ -27,8 +27,8 @@ export default function NotFoundScreen() {
         <Text style={styles.title}>Page Not Found</Text>
 
         <Text style={styles.description}>
-          Sorry, we couldn't find the page you're looking for.
-          It may have been moved or no longer exists.
+          {"Sorry, we couldn't find the page you're looking for."}
+          {" It may have been moved or no longer exists."}
         </Text>
 
         {/* Button */}
@@ -59,64 +59,46 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 24,
   },
-
   image: {
-    width: "100%",
-    height: 360,
-    marginBottom: 10,
+    width: 260,
+    height: 260,
+    marginBottom: 8,
   },
-
   content: {
-    width: "100%",
     alignItems: "center",
   },
-
   title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#14143A",
-    textAlign: "center",
-    marginBottom: 10,
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1E293B",
+    marginBottom: 8,
   },
-
   description: {
-    fontSize: 15,
-    lineHeight: 23,
-    color: "#7D8FB3",
+    fontSize: 14,
+    color: "#64748B",
     textAlign: "center",
-    maxWidth: 330,
-    marginBottom: 24,
+    lineHeight: 20,
+    marginBottom: 28,
   },
-
   button: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-
     backgroundColor: "#386BF6",
-
-    paddingHorizontal: 24,
-    height: 52,
-
-    borderRadius: 26,
-
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 30,
     shadowColor: "#386BF6",
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     elevation: 4,
   },
-
   buttonIcon: {
     marginRight: 8,
   },
-
   buttonText: {
     color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

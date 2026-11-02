@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Animated, StyleSheet, Easing } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../context/AuthContext";
@@ -15,32 +15,28 @@ export default function Index() {
     authRef.current = { session, loading };
   }, [session, loading]);
 
-  const scaleAnim     = useRef(new Animated.Value(0)).current;
-  const slideAnim     = useRef(new Animated.Value(-100)).current;
-  const fadeAnim      = useRef(new Animated.Value(0)).current;
-  const circleOpacity = useRef(new Animated.Value(1)).current;
-  const textColorAnim = useRef(new Animated.Value(0)).current;
-  const subtitleFade  = useRef(new Animated.Value(0)).current;
+  const [scaleAnim] = useState(() => new Animated.Value(0));
+  const [slideAnim] = useState(() => new Animated.Value(-100));
+  const [fadeAnim] = useState(() => new Animated.Value(0));
+  const [circleOpacity] = useState(() => new Animated.Value(1));
+  const [textColorAnim] = useState(() => new Animated.Value(0));
+  const [subtitleFade] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.sequence([
-   
       Animated.timing(scaleAnim, {
         toValue: 12,
         duration: 2200,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-  
     ]).start(() => {
-
-    
       Animated.parallel([
         Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 800,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
+          toValue: 0,
+          duration: 800,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
         }),
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -48,8 +44,6 @@ export default function Index() {
           useNativeDriver: true,
         }),
       ]).start(() => {
-
-        
         Animated.parallel([
           Animated.timing(circleOpacity, {
             toValue: 0,
@@ -59,7 +53,7 @@ export default function Index() {
           Animated.timing(textColorAnim, {
             toValue: 1,
             duration: 700,
-            useNativeDriver: false, 
+            useNativeDriver: false,
           }),
           Animated.timing(subtitleFade, {
             toValue: 1,
@@ -76,9 +70,9 @@ export default function Index() {
             }
           }, 2000);
         });
-
       });
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const apexColor = textColorAnim.interpolate({
@@ -93,7 +87,6 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-     
       <Animated.View
         style={[
           styles.circle,
@@ -146,10 +139,9 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     backgroundColor: "#0F0E1A",
     position: "absolute",
-   
     top: "50%",
     left: "50%",
-    marginTop: -100,  // half of height
+    marginTop: -100, // half of height
     marginLeft: -100, // half of width
   },
 
