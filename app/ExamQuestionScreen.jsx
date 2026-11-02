@@ -88,8 +88,8 @@ function FlashcardIntro({ onStart, onBack }) {
         </View>
 
         <Text style={introStyles.stepText}>
-          Tap <Text style={{ fontWeight: "800" }}>Didn't Know</Text> if you
-          didn't
+          Tap <Text style={{ fontWeight: "800" }}>{"Didn't Know"}</Text> if you
+          {" didn't"}
         </Text>
       </View>
 
@@ -310,8 +310,9 @@ export default function ExamQuestionScreen({
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   const timerRef = useRef(null);
+  const questionScrollRef = useRef(null);
 
-  const flipAnim = useRef(new Animated.Value(0)).current;
+  const [flipAnim] = useState(() => new Animated.Value(0));
 
   const question = questions[currentIndex];
   const total = questions.length;
@@ -389,14 +390,13 @@ export default function ExamQuestionScreen({
       stopSpeaking();
       unloadCorrectSound();
     };
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     stopSpeaking();
-    setIsSpeaking(false);
-    setFlipped(false);
     flipAnim.setValue(0);
-  }, [currentIndex]);
+    questionScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [currentIndex, flipAnim]);
 
   /* =========================================================
      PREVIOUS
@@ -405,6 +405,8 @@ export default function ExamQuestionScreen({
   const goPrev = () => {
     stopSpeaking();
     setIsSpeaking(false);
+    setFlipped(false);
+    questionScrollRef.current?.scrollTo({ y: 0, animated: false });
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
     }
@@ -417,6 +419,8 @@ export default function ExamQuestionScreen({
   const goNext = () => {
     stopSpeaking();
     setIsSpeaking(false);
+    setFlipped(false);
+    questionScrollRef.current?.scrollTo({ y: 0, animated: false });
     /*
      * If this is the last question,
      * submit the exam.
@@ -450,6 +454,8 @@ export default function ExamQuestionScreen({
   const jumpToQuestion = (index) => {
     stopSpeaking();
     setIsSpeaking(false);
+    setFlipped(false);
+    questionScrollRef.current?.scrollTo({ y: 0, animated: false });
     setCurrentIndex(index);
     setShowQuestionNavigator(false);
   };
@@ -537,6 +543,12 @@ export default function ExamQuestionScreen({
         delete updated[question.id];
         return updated;
       });
+    }
+
+    if (mode === "review") {
+      setTimeout(() => {
+        questionScrollRef.current?.scrollToEnd({ animated: true });
+      }, 150);
     }
   };
 
@@ -960,7 +972,13 @@ export default function ExamQuestionScreen({
            MULTIPLE CHOICE
         ===================================================== */
 
-        <View style={styles.questionArea}>
+        <ScrollView
+          ref={questionScrollRef}
+          style={styles.questionArea}
+          contentContainerStyle={styles.questionAreaContent}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.questionHeaderBar}>
             <View style={styles.questionIndexPill}>
               <Text style={styles.questionIndexText}>
@@ -1080,7 +1098,7 @@ export default function ExamQuestionScreen({
                 )}
               </View>
             )}
-        </View>
+        </ScrollView>
       )}
 
       {/* =====================================================
@@ -1114,7 +1132,7 @@ export default function ExamQuestionScreen({
                     answers[question.id] === "wrong" && styles.gradeBtnTextActive,
                   ]}
                 >
-                  Didn't Know
+                  {"Didn't Know"}
                 </Text>
               </TouchableOpacity>
 
@@ -1804,8 +1822,13 @@ const styles = StyleSheet.create({
 
   questionArea: {
     flex: 1,
+  },
+
+  questionAreaContent: {
     paddingHorizontal: 20,
     paddingTop: 18,
+    paddingBottom: 32,
+    flexGrow: 1,
   },
 
   questionHeaderBar: {
@@ -1949,6 +1972,7 @@ const styles = StyleSheet.create({
 
   explanationBox: {
     marginTop: 20,
+    marginBottom: 12,
     backgroundColor: "#F1F5FF",
     borderRadius: 14,
     padding: 16,
