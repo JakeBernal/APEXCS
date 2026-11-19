@@ -36,7 +36,13 @@
       "expo-status-bar",
       "expo-web-browser",
       "expo-audio",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow APEX-CS to access your camera to scan classroom group examination QR codes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -19,11 +19,12 @@ import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import * as Haptics from "expo-haptics";
 import { router, useFocusEffect } from "expo-router";
 
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
-import { getDashboardSummary, resetUserProgress } from "../../lib/attempts";
+import { getDashboardSummary, resetUserProgress, syncPendingAttempts } from "../../lib/attempts";
 import {
   getStudyReminders,
   isReminderDueToday,
@@ -182,6 +183,12 @@ export default function Dashboard() {
   useFocusEffect(
     React.useCallback(() => {
       loadDashboard();
+      // Silently sync any queued offline attempts if connected to internet
+      syncPendingAttempts().then((res) => {
+        if (res?.syncedCount > 0) {
+          loadDashboard();
+        }
+      });
       if (user?.id) {
         getUserAvatar(user.id).then((savedAvatar) => {
           if (savedAvatar) setAvatarId(savedAvatar);
@@ -571,9 +578,12 @@ export default function Dashboard() {
                 selectedLevel === "professional" &&
                   styles.levelButtonActive,
               ]}
-              onPress={() =>
-                setSelectedLevel("professional")
-              }
+              onPress={() => {
+                if (selectedLevel !== "professional") {
+                  Haptics.selectionAsync().catch(() => {});
+                  setSelectedLevel("professional");
+                }
+              }}
             >
               <Text
                 style={[
@@ -595,9 +605,12 @@ export default function Dashboard() {
                 selectedLevel === "sub" &&
                   styles.levelButtonActive,
               ]}
-              onPress={() =>
-                setSelectedLevel("sub")
-              }
+              onPress={() => {
+                if (selectedLevel !== "sub") {
+                  Haptics.selectionAsync().catch(() => {});
+                  setSelectedLevel("sub");
+                }
+              }}
             >
               <Text
                 style={[
@@ -1568,6 +1581,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#fff",
     marginTop: 2,
+    fontVariant: ["tabular-nums"],
   },
 
   avgScoreLabel: {
@@ -1615,6 +1629,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 20,
     fontWeight: "800",
+    fontVariant: ["tabular-nums"],
   },
 
   statUnit: {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 
 function formatTime(totalSeconds) {
   const h = Math.floor(totalSeconds / 3600);
@@ -82,7 +83,19 @@ export default function ExamResultScreen({
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
       setDisplayPercent(Math.round(progress * percent));
-      if (progress < 1) requestAnimationFrame(tick);
+      if (progress < 1) {
+        requestAnimationFrame(tick);
+      } else {
+        if (percent >= 80) {
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success
+          ).catch(() => {});
+        } else {
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Warning
+          ).catch(() => {});
+        }
+      }
     };
     requestAnimationFrame(tick);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -298,6 +311,7 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: "800",
     marginTop: 4,
+    fontVariant: ["tabular-nums"],
   },
 
   motivation: {
@@ -326,6 +340,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "800",
+    fontVariant: ["tabular-nums"],
   },
 
   statLabel: {

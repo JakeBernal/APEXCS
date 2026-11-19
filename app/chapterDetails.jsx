@@ -314,7 +314,7 @@ export default function ChapterDetails() {
             <Text style={styles.accuracyNum}>
               {chapterAttempted > 0
                 ? `${Math.round((chapterCorrect / chapterAttempted) * 100)}%`
-                : "—"}
+                : "N/A"}
             </Text>
             <Text style={styles.accuracyLabel}>Accuracy</Text>
           </View>

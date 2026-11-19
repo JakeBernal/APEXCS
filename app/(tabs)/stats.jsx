@@ -30,7 +30,7 @@ const SUBJECT_COLORS = [
 ];
 
 function formatDuration(seconds) {
-  if (seconds === null || seconds === undefined) return "—";
+  if (seconds === null || seconds === undefined) return "0m";
 
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -437,7 +437,7 @@ export default function Stats() {
                 ]}
               >
                 {growth === null
-                  ? "—"
+                  ? "N/A"
                   : `${
                       growth > 0 ? "+" : ""
                     }${growth}%`}
@@ -979,7 +979,7 @@ export default function Stats() {
                         ]}
                       >
                         {vsPrev === null
-                          ? "—"
+                          ? "N/A"
                           : `${
                               vsPrev > 0
                                 ? "+"
@@ -1097,6 +1097,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 28,
     fontWeight: "800",
+    fontVariant: ["tabular-nums"],
   },
 
   summaryLabel: {
@@ -1160,7 +1161,7 @@ const styles = StyleSheet.create({
   },
 
   filterText: {
-    color: "#B0B0B0",
+    color: "#64748B",
     fontWeight: "600",
     fontSize: 12,
     textAlign: "center",

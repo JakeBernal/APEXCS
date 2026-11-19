@@ -11,6 +11,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="dashboard" />
       <Tabs.Screen name="exams" />
+      <Tabs.Screen name="groupExam" />
       <Tabs.Screen name="stats" />
       <Tabs.Screen name="profile" />
 

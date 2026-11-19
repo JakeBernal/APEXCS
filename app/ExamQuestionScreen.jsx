@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import AudioReaderButton from "../components/AudioReaderButton";
 import {
   speakText,
@@ -517,15 +518,24 @@ export default function ExamQuestionScreen({
     }
 
     /*
-     * Only play celebratory SFX in review mode where instant feedback is visible.
-     * In timed mock exams, SFX is omitted so examinees cannot guess answers during the test.
+     * Feedback in review mode: success / warning haptic + SFX.
+     * In timed mode: crisp selection tick without revealing answer validity.
      */
-    if (
-      mode === "review" &&
-      selected !== choiceIndex &&
-      choiceIndex === question.correctIndex
-    ) {
-      playCorrectSound();
+    if (mode === "review") {
+      if (choiceIndex === question.correctIndex) {
+        Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success
+        ).catch(() => {});
+        if (selected !== choiceIndex) {
+          playCorrectSound();
+        }
+      } else {
+        Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Warning
+        ).catch(() => {});
+      }
+    } else {
+      Haptics.selectionAsync().catch(() => {});
     }
 
     setAnswers((prev) => ({
@@ -1078,7 +1088,7 @@ export default function ExamQuestionScreen({
                   {selected ===
                   question.correctIndex
                     ? "Correct!"
-                    : `Not quite — the correct answer is ${
+                    : `Not quite. The correct answer is ${
                         LETTERS[
                           question.correctIndex
                         ]
@@ -1439,6 +1449,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 12,
     fontWeight: "600",
+    fontVariant: ["tabular-nums"],
   },
 
   /* =======================================================
