@@ -35,6 +35,7 @@ import {
   getAvatarSource,
   getUserAvatar,
 } from "../../lib/avatarHelper";
+import { getCategoryConfig } from "../../lib/curriculum";
 
 const { width } = Dimensions.get("window");
 
@@ -132,6 +133,8 @@ export default function Dashboard() {
   });
 
   const flatListRef = useRef();
+  const mainScrollRef = useRef(null);
+  const categoryPositions = useRef({});
 
   const [summary, setSummary] = useState({
     examsTaken: 0,
@@ -140,6 +143,7 @@ export default function Dashboard() {
     bestMockScore: "0/170",
     lastScore: 0,
     lastMockScore: 0,
+    mockGrowth: null,
     avgScore: 0,
     examReadiness: 0,
     subjectReadiness: [],
@@ -148,10 +152,34 @@ export default function Dashboard() {
   const [expandedSubjects, setExpandedSubjects] = useState({});
 
   const toggleSubjectExpand = (title) => {
+    Haptics.selectionAsync().catch(() => {});
+    const willExpand = !expandedSubjects[title];
     setExpandedSubjects((prev) => ({
       ...prev,
       [title]: !prev[title],
     }));
+
+    if (willExpand) {
+      const immediateY = categoryPositions.current[title];
+      if (typeof immediateY === "number") {
+        mainScrollRef.current?.scrollTo({
+          y: Math.max(0, immediateY - 16),
+          animated: true,
+        });
+      }
+      setTimeout(() => {
+        const updatedY = categoryPositions.current[title];
+        if (
+          typeof updatedY === "number" &&
+          (typeof immediateY !== "number" || Math.abs(updatedY - immediateY) > 5)
+        ) {
+          mainScrollRef.current?.scrollTo({
+            y: Math.max(0, updatedY - 16),
+            animated: true,
+          });
+        }
+      }, 120);
+    }
   };
 
   /*
@@ -357,12 +385,25 @@ export default function Dashboard() {
             subjectName.trim().toLowerCase()
         );
 
+      const fallbackConfig = getCategoryConfig(selectedLevel, subjectName);
+      const chapters =
+        existingSubject?.chapters && existingSubject.chapters.length > 0
+          ? existingSubject.chapters
+          : fallbackConfig?.chapters?.map((ch) => ({
+              id: ch.id,
+              title: ch.title,
+              description: ch.description,
+              percent: 0,
+              totalAttempted: 0,
+              totalCorrect: 0,
+            })) || [];
+
       return {
         title: subjectName,
         percent: existingSubject?.percent ?? 0,
         totalAttempted: existingSubject?.totalAttempted ?? 0,
         totalCorrect: existingSubject?.totalCorrect ?? 0,
-        chapters: existingSubject?.chapters || [],
+        chapters,
       };
     }
   );
@@ -467,15 +508,38 @@ export default function Dashboard() {
 
             <View style={styles.statDivider} />
 
-            <View style={styles.statItem}>
-              <Text style={styles.statNum}>
-                {summary.mockExamsTaken > 0 && summary.lastMockScore !== undefined
-                  ? `${summary.lastMockScore}%`
-                  : "0%"}
+            <View
+              style={styles.statItem}
+              accessibilityRole="text"
+              accessibilityLabel={`Growth in full mock exams: ${
+                summary.mockGrowth !== null && summary.mockGrowth !== undefined
+                  ? `${summary.mockGrowth > 0 ? "plus " : ""}${summary.mockGrowth} percent`
+                  : "not available yet"
+              }`}
+            >
+              <Text
+                style={[
+                  styles.statNum,
+                  summary.mockGrowth !== null &&
+                    summary.mockGrowth !== undefined &&
+                    summary.mockGrowth > 0 &&
+                    styles.statGrowthPositive,
+                  summary.mockGrowth !== null &&
+                    summary.mockGrowth !== undefined &&
+                    summary.mockGrowth < 0 &&
+                    styles.statGrowthNegative,
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {summary.mockGrowth !== null && summary.mockGrowth !== undefined
+                  ? `${summary.mockGrowth > 0 ? "+" : ""}${summary.mockGrowth}%`
+                  : "N/A"}
               </Text>
 
               <Text style={styles.statUnit}>
-                Last Score
+                Growth
               </Text>
             </View>
           </View>
@@ -512,6 +576,7 @@ export default function Dashboard() {
       />
 
       <ScrollView
+        ref={mainScrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingBottom: 120,
@@ -768,6 +833,10 @@ export default function Dashboard() {
             <View
               key={subject.title}
               style={styles.performanceCard}
+              onLayout={(e) => {
+                categoryPositions.current[subject.title] =
+                  e.nativeEvent.layout.y;
+              }}
             >
               <TouchableOpacity
                 activeOpacity={0.75}
@@ -1630,6 +1699,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "800",
     fontVariant: ["tabular-nums"],
+  },
+
+  statGrowthPositive: {
+    color: "#A7F3B5",
+  },
+
+  statGrowthNegative: {
+    color: "#FFD0D0",
   },
 
   statUnit: {

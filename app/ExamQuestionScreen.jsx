@@ -7,7 +7,10 @@ import {
   Animated,
   Modal,
   ScrollView,
+  ActivityIndicator,
+  Pressable,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +26,7 @@ import {
   unloadCorrectSound,
   preloadCorrectSound,
 } from "../lib/soundHelper";
+import { getAiExplanation } from "../lib/aiTutor";
 
 const LETTERS = ["A", "B", "C", "D"];
 
@@ -286,6 +290,7 @@ export default function ExamQuestionScreen({
   onRequestSubmit,
   onTimeUp,
 }) {
+  const insets = useSafeAreaInsets();
   const [flipped, setFlipped] = useState(false);
 
   const isFlashcard = mode === "flashcards" || mode === "flashcard";
@@ -320,6 +325,120 @@ export default function ExamQuestionScreen({
   const isLast = currentIndex === total - 1;
   const progress = ((currentIndex + 1) / total) * 100;
   const selected = answers[question.id];
+
+  const [aiState, setAiState] = useState({});
+  const [flashcardAiModalVisible, setFlashcardAiModalVisible] = useState(false);
+
+  const qId = question?.id || `q_${currentIndex}`;
+  const currentAi = aiState[qId];
+
+  const handleToggleAiTutor = async () => {
+    Haptics.selectionAsync().catch(() => {});
+    if (!question) return;
+
+    if (currentAi?.data) {
+      setAiState((prev) => ({
+        ...prev,
+        [qId]: {
+          ...prev[qId],
+          expanded: !prev[qId].expanded,
+        },
+      }));
+      return;
+    }
+
+    setAiState((prev) => ({
+      ...prev,
+      [qId]: {
+        loading: true,
+        error: null,
+        expanded: true,
+        data: null,
+      },
+    }));
+
+    try {
+      const data = await getAiExplanation({
+        questionId: question.id,
+        questionText: question.question,
+        choices: question.choices,
+        selectedChoiceIndex: selected,
+        correctChoiceIndex: question.correctIndex,
+        chapter: question.chapter || question.subjectTitle || subjectLabel,
+        existingExplanation: question.explanation,
+      });
+
+      setAiState((prev) => ({
+        ...prev,
+        [qId]: {
+          loading: false,
+          error: null,
+          expanded: true,
+          data,
+        },
+      }));
+    } catch (err) {
+      setAiState((prev) => ({
+        ...prev,
+        [qId]: {
+          loading: false,
+          error: err.message || "Failed to load AI explanation.",
+          expanded: true,
+          data: null,
+        },
+      }));
+    }
+  };
+
+  const handleOpenFlashcardAi = async () => {
+    Haptics.selectionAsync().catch(() => {});
+    setFlashcardAiModalVisible(true);
+    if (!question) return;
+
+    if (!currentAi?.data && !currentAi?.loading) {
+      setAiState((prev) => ({
+        ...prev,
+        [qId]: {
+          loading: true,
+          error: null,
+          expanded: true,
+          data: null,
+        },
+      }));
+
+      try {
+        const data = await getAiExplanation({
+          questionId: question.id,
+          questionText: question.question,
+          choices: question.choices,
+          correctChoiceIndex: question.correctIndex,
+          correctChoiceText: question.choices?.[question.correctIndex] || "",
+          chapter: question.chapter || question.subjectTitle || subjectLabel,
+          existingExplanation: question.explanation,
+        });
+
+        setAiState((prev) => ({
+          ...prev,
+          [qId]: {
+            loading: false,
+            error: null,
+            expanded: true,
+            data,
+          },
+        }));
+      } catch (err) {
+        setAiState((prev) => ({
+          ...prev,
+          [qId]: {
+            loading: false,
+            error: err.message || "Failed to load AI explanation.",
+            expanded: true,
+            data: null,
+          },
+        }));
+      }
+    }
+  };
 
   /* =========================================================
      TIMER
@@ -757,7 +876,7 @@ export default function ExamQuestionScreen({
       ) : (
         <LinearGradient
           colors={["#4D79FF", "#2346B8"]}
-          style={styles.header}
+          style={[styles.header, { paddingTop: Math.max(insets.top + 8, 48) }]}
         >
           <View style={styles.topRow}>
             {/* BACK BUTTON */}
@@ -965,6 +1084,25 @@ export default function ExamQuestionScreen({
                       ]
                     }
                   </Text>
+
+                  <TouchableOpacity
+                    style={styles.flashcardAiButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleOpenFlashcardAi();
+                    }}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Ask AI Tutor for an in-depth breakdown of this concept"
+                  >
+                    <View style={styles.aiSparkleIconWrap}>
+                      <Ionicons name="sparkles" size={13} color="#4F46E5" />
+                    </View>
+                    <Text style={styles.flashcardAiButtonText}>
+                      Ask AI Tutor
+                    </Text>
+                    <Ionicons name="chevron-forward" size={14} color="#4F46E5" />
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.flipHintRow}>
@@ -1106,6 +1244,114 @@ export default function ExamQuestionScreen({
                     {question.explanation}
                   </Text>
                 )}
+
+                {/* AI TUTOR IN REVIEW MODE */}
+                <View style={styles.reviewAiWrap}>
+                  <TouchableOpacity
+                    style={[
+                      styles.aiTutorTriggerBtn,
+                      currentAi?.expanded && styles.aiTutorTriggerBtnActive,
+                    ]}
+                    onPress={handleToggleAiTutor}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Ask AI Tutor for deeper explanation"
+                  >
+                    <View style={styles.aiTriggerLeft}>
+                      <View style={styles.aiSparkleIconWrap}>
+                        <Ionicons name="sparkles" size={13} color="#4F46E5" />
+                      </View>
+                      <Text style={styles.aiTriggerText}>
+                        {currentAi?.data
+                          ? currentAi.expanded
+                            ? "Hide AI Tutor Breakdown"
+                            : "Show AI Tutor Breakdown"
+                          : currentAi?.loading
+                          ? "Consulting AI Tutor..."
+                          : "Ask AI Tutor"}
+                      </Text>
+                    </View>
+
+                    {currentAi?.loading ? (
+                      <ActivityIndicator size="small" color="#4F46E5" />
+                    ) : (
+                      <Ionicons
+                        name={currentAi?.expanded ? "chevron-up" : "chevron-down"}
+                        size={16}
+                        color="#4F46E5"
+                      />
+                    )}
+                  </TouchableOpacity>
+
+                  {/* EXPANDED AI CARD */}
+                  {currentAi?.expanded && (
+                    <View style={styles.aiCardContent}>
+                      {currentAi.loading && (
+                        <View style={styles.aiLoadingWrap}>
+                          <ActivityIndicator size="small" color="#4F46E5" />
+                          <Text style={styles.aiLoadingText}>
+                            AI Tutor is analyzing this question...
+                          </Text>
+                        </View>
+                      )}
+
+                      {currentAi.error ? (
+                        <View style={styles.aiErrorBox}>
+                          <Ionicons name="alert-circle" size={16} color="#EF4444" />
+                          <Text style={styles.aiErrorText}>{currentAi.error}</Text>
+                          <TouchableOpacity
+                            style={styles.aiRetryBtn}
+                            onPress={handleToggleAiTutor}
+                          >
+                            <Text style={styles.aiRetryText}>Retry</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : null}
+
+                      {currentAi.data ? (
+                        <View style={styles.aiExplanationWrap}>
+                          {currentAi.data.summary ? (
+                            <View style={styles.aiSummaryRow}>
+                              <Text style={styles.aiSummaryText}>
+                                {currentAi.data.summary}
+                              </Text>
+                            </View>
+                          ) : null}
+
+                          {currentAi.data.whyCorrect ? (
+                            <View style={styles.aiSection}>
+                              <View style={styles.aiSectionHeader}>
+                                <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                                <Text style={styles.aiSectionTitle}>Step-by-Step Logic</Text>
+                              </View>
+                              <Text style={styles.aiSectionBody}>{currentAi.data.whyCorrect}</Text>
+                            </View>
+                          ) : null}
+
+                          {currentAi.data.userTrap ? (
+                            <View style={styles.aiSection}>
+                              <View style={styles.aiSectionHeader}>
+                                <Ionicons name="warning-outline" size={14} color="#F59E0B" />
+                                <Text style={styles.aiSectionTitle}>Common Trap / Misconception</Text>
+                              </View>
+                              <Text style={styles.aiSectionBody}>{currentAi.data.userTrap}</Text>
+                            </View>
+                          ) : null}
+
+                          {currentAi.data.examTip ? (
+                            <View style={styles.aiTipBox}>
+                              <View style={styles.aiSectionHeader}>
+                                <Ionicons name="bulb" size={14} color="#D97706" />
+                                <Text style={styles.aiTipTitle}>Civil Service Pro-Tip</Text>
+                              </View>
+                              <Text style={styles.aiTipBody}>{currentAi.data.examTip}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ) : null}
+                    </View>
+                  )}
+                </View>
               </View>
             )}
         </ScrollView>
@@ -1115,7 +1361,12 @@ export default function ExamQuestionScreen({
           FOOTER
       ===================================================== */}
 
-      <View style={isFlashcardMode ? styles.footerFlashcards : styles.footer}>
+      <View
+        style={[
+          isFlashcardMode ? styles.footerFlashcards : styles.footer,
+          { paddingBottom: Math.max(insets.bottom, 16) },
+        ]}
+      >
         {isFlashcardMode ? (
           <View style={styles.flashcardFooterContent}>
             {/* ROW 1: CHECK & WRONG ACTIONS */}
@@ -1261,6 +1512,127 @@ export default function ExamQuestionScreen({
           </>
         )}
       </View>
+
+      {/* ================= FLASHCARD AI TUTOR MODAL ================= */}
+      <Modal
+        visible={flashcardAiModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFlashcardAiModalVisible(false)}
+      >
+        <View style={styles.flashcardAiModalOverlay}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setFlashcardAiModalVisible(false)}
+          />
+
+          <View
+            style={[
+              styles.flashcardAiModalCard,
+              { paddingBottom: Math.max(insets.bottom, 20) },
+            ]}
+          >
+            <View style={styles.modalDragHandle} />
+
+            <View style={styles.flashcardAiModalHeader}>
+              <View style={styles.aiTriggerLeft}>
+                <View style={styles.aiSparkleIconWrap}>
+                  <Ionicons name="sparkles" size={14} color="#4F46E5" />
+                </View>
+                <Text style={styles.flashcardAiModalTitle}>AI Concept Breakdown</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.modalCloseCircle}
+                onPress={() => setFlashcardAiModalVisible(false)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Close AI Tutor Breakdown"
+              >
+                <Ionicons name="close" size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={true}
+              style={{ maxHeight: 420 }}
+              contentContainerStyle={{ paddingBottom: 16 }}
+            >
+              {currentAi?.loading && (
+                <View style={styles.aiLoadingWrap}>
+                  <ActivityIndicator size="small" color="#4F46E5" />
+                  <Text style={styles.aiLoadingText}>
+                    AI Tutor is analyzing this concept...
+                  </Text>
+                </View>
+              )}
+
+              {currentAi?.error ? (
+                <View style={styles.aiErrorBox}>
+                  <Ionicons name="alert-circle" size={16} color="#EF4444" />
+                  <Text style={styles.aiErrorText}>{currentAi.error}</Text>
+                  <TouchableOpacity
+                    style={styles.aiRetryBtn}
+                    onPress={handleOpenFlashcardAi}
+                  >
+                    <Text style={styles.aiRetryText}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              {currentAi?.data ? (
+                <View style={styles.aiExplanationWrap}>
+                  {currentAi.data.summary ? (
+                    <View style={styles.aiSummaryRow}>
+                      <Text style={styles.aiSummaryText}>
+                        {currentAi.data.summary}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {currentAi.data.whyCorrect ? (
+                    <View style={styles.aiSection}>
+                      <View style={styles.aiSectionHeader}>
+                        <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                        <Text style={styles.aiSectionTitle}>Core Concept & Logic</Text>
+                      </View>
+                      <Text style={styles.aiSectionBody}>{currentAi.data.whyCorrect}</Text>
+                    </View>
+                  ) : null}
+
+                  {currentAi.data.userTrap ? (
+                    <View style={styles.aiSection}>
+                      <View style={styles.aiSectionHeader}>
+                        <Ionicons name="warning-outline" size={14} color="#F59E0B" />
+                        <Text style={styles.aiSectionTitle}>Civil Service Trap to Avoid</Text>
+                      </View>
+                      <Text style={styles.aiSectionBody}>{currentAi.data.userTrap}</Text>
+                    </View>
+                  ) : null}
+
+                  {currentAi.data.examTip ? (
+                    <View style={styles.aiTipBox}>
+                      <View style={styles.aiSectionHeader}>
+                        <Ionicons name="bulb" size={14} color="#D97706" />
+                        <Text style={styles.aiTipTitle}>Memory Trick / Rule</Text>
+                      </View>
+                      <Text style={styles.aiTipBody}>{currentAi.data.examTip}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.flashcardAiDoneBtn}
+              onPress={() => setFlashcardAiModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.flashcardAiDoneBtnText}>Got It</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ContainerComp>
   );
 }
@@ -2164,6 +2536,263 @@ const styles = StyleSheet.create({
   figmaNavBtnText: {
     color: "#FFFFFF",
     fontSize: 14,
+    fontWeight: "700",
+  },
+
+  /* =======================================================
+     AI TUTOR STYLES (REVIEW & FLASHCARD MODES)
+  ======================================================= */
+  flashcardAiButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F3FF",
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 14,
+    alignSelf: "flex-start",
+    gap: 8,
+  },
+
+  flashcardAiButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
+
+  reviewAiWrap: {
+    marginTop: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E0E7FF",
+    overflow: "hidden",
+    backgroundColor: "#FAF5FF",
+  },
+
+  aiTutorTriggerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#F5F3FF",
+  },
+
+  aiTutorTriggerBtnActive: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E7FF",
+  },
+
+  aiTriggerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+
+  aiSparkleIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#EEF2FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  aiTriggerText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
+
+  aiCardContent: {
+    padding: 12,
+    backgroundColor: "#FFFFFF",
+  },
+
+  aiLoadingWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+  },
+
+  aiLoadingText: {
+    fontSize: 13,
+    color: "#6366F1",
+    fontWeight: "500",
+    flex: 1,
+  },
+
+  aiErrorBox: {
+    padding: 12,
+    backgroundColor: "#FEF2F2",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    gap: 8,
+  },
+
+  aiErrorText: {
+    fontSize: 13,
+    color: "#B91C1C",
+    lineHeight: 18,
+  },
+
+  aiRetryBtn: {
+    alignSelf: "flex-start",
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+
+  aiRetryText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  aiExplanationWrap: {
+    gap: 10,
+  },
+
+  aiSummaryRow: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#4F46E5",
+  },
+
+  aiSummaryText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#312E81",
+    lineHeight: 18,
+  },
+
+  aiSection: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+
+  aiSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+
+  aiSectionTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#334155",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+
+  aiSectionBody: {
+    fontSize: 13,
+    color: "#1E293B",
+    lineHeight: 19,
+  },
+
+  aiTipBox: {
+    backgroundColor: "#FFFBEB",
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+
+  aiTipTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#B45309",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+
+  aiTipBody: {
+    fontSize: 13,
+    color: "#78350F",
+    lineHeight: 18,
+    fontWeight: "500",
+  },
+
+  /* FLASHCARD AI MODAL */
+  flashcardAiModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    justifyContent: "flex-end",
+  },
+
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  flashcardAiModalCard: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    maxHeight: "85%",
+  },
+
+  modalDragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#CBD5E1",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+
+  flashcardAiModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEF1F5",
+  },
+
+  flashcardAiModalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#14143A",
+  },
+
+  modalCloseCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  flashcardAiDoneBtn: {
+    backgroundColor: "#4F46E5",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 10,
+  },
+
+  flashcardAiDoneBtnText: {
+    color: "#FFFFFF",
+    fontSize: 15,
     fontWeight: "700",
   },
 }); 

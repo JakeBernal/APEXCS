@@ -191,7 +191,6 @@ export default function Profile() {
 
   const fullName = user?.user_metadata?.full_name || "Civil Service Examinee";
   const email = user?.email || "";
-  const initial = fullName.charAt(0).toUpperCase();
 
   const [avatarId, setAvatarId] = useState("avatar1");
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
@@ -225,7 +224,7 @@ export default function Profile() {
     useCallback(() => {
       setLoading(true);
       Promise.all([
-        getDashboardSummary(),
+        getDashboardSummary("all"),
         getStudyStreak(),
         getExamDate(),
         getUserAvatar(user?.id),
@@ -291,7 +290,7 @@ export default function Profile() {
       const iso = date.toISOString();
       await setExamDate(iso);
       setExamDateState(iso);
-    } catch (err) {
+    } catch (_err) {
       Alert.alert("Unable to save", "Please try again.");
     } finally {
       setSavingDate(false);
@@ -408,7 +407,7 @@ export default function Profile() {
                 icon="document-text-outline"
                 iconColor={PALETTE.primary}
                 iconBg={PALETTE.panelBlue}
-                label="Mock Exams"
+                label="Exams Taken"
                 value={summary.examsTaken}
               />
               <MetricBox

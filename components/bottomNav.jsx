@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useIsExamActive } from "../lib/examActiveState";
 
 const COLORS = {
   primary: "#386BF6",
@@ -61,6 +62,11 @@ export default function BottomNav() {
   };
 
   const isGroupActive = pathname === "/groupExam";
+  const isExamActive = useIsExamActive();
+
+  if (isExamActive) {
+    return null;
+  }
 
   return (
     <View

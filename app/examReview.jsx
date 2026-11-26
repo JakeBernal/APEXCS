@@ -13,7 +13,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { router, useLocalSearchParams } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { getAttemptReviewDetails, PASS_THRESHOLD } from "../lib/attempts";
+import { getAiExplanation } from "../lib/aiTutor";
 
 const COLORS = {
   primary: "#386BF6",
@@ -46,6 +48,66 @@ export default function ExamReview() {
   const [attempt, setAttempt] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [filter, setFilter] = useState("all"); // "all" | "wrong" | "correct" | "skipped"
+  const [aiState, setAiState] = useState({});
+
+  const handleToggleAiTutor = useCallback(async (item) => {
+    Haptics.selectionAsync().catch(() => {});
+    const qId = item.id;
+    const current = aiState[qId];
+
+    if (current?.data) {
+      setAiState((prev) => ({
+        ...prev,
+        [qId]: {
+          ...prev[qId],
+          expanded: !prev[qId].expanded,
+        },
+      }));
+      return;
+    }
+
+    setAiState((prev) => ({
+      ...prev,
+      [qId]: {
+        loading: true,
+        error: null,
+        expanded: true,
+        data: null,
+      },
+    }));
+
+    try {
+      const data = await getAiExplanation({
+        questionId: item.id,
+        questionText: item.questionText,
+        choices: item.choices,
+        selectedChoiceId: item.selectedChoiceId,
+        correctChoiceId: item.correctChoiceId,
+        chapter: item.chapter,
+        existingExplanation: item.explanation,
+      });
+
+      setAiState((prev) => ({
+        ...prev,
+        [qId]: {
+          loading: false,
+          error: null,
+          expanded: true,
+          data,
+        },
+      }));
+    } catch (err) {
+      setAiState((prev) => ({
+        ...prev,
+        [qId]: {
+          loading: false,
+          error: err.message || "Failed to load AI explanation.",
+          expanded: true,
+          data: null,
+        },
+      }));
+    }
+  }, [aiState]);
 
   const loadData = useCallback(async () => {
     if (!attemptId) {
@@ -69,7 +131,6 @@ export default function ExamReview() {
   }, [attemptId]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [loadData]);
 
@@ -112,6 +173,7 @@ export default function ExamReview() {
     const isCorrect = item.status === "correct";
     const isWrong = item.status === "wrong";
     const isSkipped = item.status === "skipped";
+    const qAi = aiState[item.id];
 
     return (
       <View style={styles.questionCard}>
@@ -291,6 +353,118 @@ export default function ExamReview() {
             <Text style={styles.explanationBody}>{item.explanation}</Text>
           </View>
         ) : null}
+
+        {/* AI TUTOR ACCORDION / CARD */}
+        <View style={styles.aiTutorContainer}>
+          <TouchableOpacity
+            style={[
+              styles.aiTutorTriggerBtn,
+              qAi?.expanded && styles.aiTutorTriggerBtnActive,
+            ]}
+            onPress={() => handleToggleAiTutor(item)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Ask AI Tutor for question ${item.questionNumber}`}
+          >
+            <View style={styles.aiTriggerLeft}>
+              <View style={styles.aiSparkleIconWrap}>
+                <Ionicons name="sparkles" size={13} color="#4F46E5" />
+              </View>
+              <Text style={styles.aiTriggerText}>
+                {qAi?.data
+                  ? qAi.expanded
+                    ? "Hide AI Tutor Breakdown"
+                    : "Show AI Tutor Breakdown"
+                  : qAi?.loading
+                  ? "Consulting AI Tutor..."
+                  : "Ask AI Tutor"}
+              </Text>
+            </View>
+
+            {qAi?.loading ? (
+              <ActivityIndicator size="small" color="#4F46E5" />
+            ) : (
+              <Ionicons
+                name={qAi?.expanded ? "chevron-up" : "chevron-down"}
+                size={16}
+                color="#4F46E5"
+              />
+            )}
+          </TouchableOpacity>
+
+          {/* EXPANDED CONTENT */}
+          {qAi?.expanded && (
+            <View style={styles.aiCardContent}>
+              {qAi.loading && (
+                <View style={styles.aiLoadingWrap}>
+                  <ActivityIndicator size="small" color="#4F46E5" />
+                  <Text style={styles.aiLoadingText}>
+                    AI Tutor is analyzing this Civil Service question...
+                  </Text>
+                </View>
+              )}
+
+              {qAi.error ? (
+                <View style={styles.aiErrorBox}>
+                  <Ionicons name="alert-circle" size={16} color={COLORS.danger} />
+                  <Text style={styles.aiErrorText}>{qAi.error}</Text>
+                  <TouchableOpacity
+                    style={styles.aiRetryBtn}
+                    onPress={() => handleToggleAiTutor(item)}
+                  >
+                    <Text style={styles.aiRetryText}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              {qAi.data ? (
+                <View style={styles.aiExplanationWrap}>
+                  {/* SUMMARY */}
+                  {qAi.data.summary ? (
+                    <View style={styles.aiSummaryRow}>
+                      <Text style={styles.aiSummaryText}>
+                        {qAi.data.summary}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {/* WHY CORRECT / LOGIC */}
+                  {qAi.data.whyCorrect ? (
+                    <View style={styles.aiSection}>
+                      <View style={styles.aiSectionHeader}>
+                        <Ionicons name="checkmark-circle" size={15} color="#10B981" />
+                        <Text style={styles.aiSectionTitle}>Step-by-Step Logic</Text>
+                      </View>
+                      <Text style={styles.aiSectionBody}>{qAi.data.whyCorrect}</Text>
+                    </View>
+                  ) : null}
+
+                  {/* TRAP ANALYSIS */}
+                  {qAi.data.userTrap ? (
+                    <View style={styles.aiSection}>
+                      <View style={styles.aiSectionHeader}>
+                        <Ionicons name="warning-outline" size={15} color="#F59E0B" />
+                        <Text style={styles.aiSectionTitle}>Common Trap / Misconception</Text>
+                      </View>
+                      <Text style={styles.aiSectionBody}>{qAi.data.userTrap}</Text>
+                    </View>
+                  ) : null}
+
+                  {/* CSC EXAM TIP */}
+                  {qAi.data.examTip ? (
+                    <View style={styles.aiTipBox}>
+                      <View style={styles.aiSectionHeader}>
+                        <Ionicons name="bulb" size={15} color="#D97706" />
+                        <Text style={styles.aiTipTitle}>Civil Service Pro-Tip</Text>
+                      </View>
+                      <Text style={styles.aiTipBody}>{qAi.data.examTip}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+          )}
+        </View>
       </View>
     );
   };
@@ -639,6 +813,23 @@ const styles = StyleSheet.create({
   scorePillText: {
     fontSize: 13,
     fontWeight: "700",
+  },
+
+  headerRightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  aiSettingsHeaderBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#EEF2FF",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
   },
 
   /* FILTER BAR */
@@ -1100,5 +1291,172 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#64748B",
     lineHeight: 17,
+  },
+
+  /* AI TUTOR SECTION */
+  aiTutorContainer: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#E0E7FF",
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#FAF5FF",
+  },
+
+  aiTutorTriggerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#F5F3FF",
+  },
+
+  aiTutorTriggerBtnActive: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E7FF",
+  },
+
+  aiTriggerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+
+  aiSparkleIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#EEF2FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  aiTriggerText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#4F46E5",
+  },
+
+  aiCardContent: {
+    padding: 12,
+    backgroundColor: "#FFFFFF",
+  },
+
+  aiLoadingWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+  },
+
+  aiLoadingText: {
+    fontSize: 13,
+    color: "#6366F1",
+    fontWeight: "500",
+    flex: 1,
+  },
+
+  aiErrorBox: {
+    padding: 12,
+    backgroundColor: "#FEF2F2",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    gap: 8,
+  },
+
+  aiErrorText: {
+    fontSize: 13,
+    color: "#B91C1C",
+    lineHeight: 18,
+  },
+
+  aiRetryBtn: {
+    alignSelf: "flex-start",
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+
+  aiRetryText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  aiExplanationWrap: {
+    gap: 10,
+  },
+
+  aiSummaryRow: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#4F46E5",
+  },
+
+  aiSummaryText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#312E81",
+    lineHeight: 18,
+  },
+
+  aiSection: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+
+  aiSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+
+  aiSectionTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#334155",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+
+  aiSectionBody: {
+    fontSize: 13,
+    color: "#1E293B",
+    lineHeight: 19,
+  },
+
+  aiTipBox: {
+    backgroundColor: "#FFFBEB",
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+
+  aiTipTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#B45309",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+
+  aiTipBody: {
+    fontSize: 13,
+    color: "#78350F",
+    lineHeight: 18,
+    fontWeight: "500",
   },
 });

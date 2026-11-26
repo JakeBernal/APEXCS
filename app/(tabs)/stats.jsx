@@ -391,7 +391,7 @@ export default function Stats() {
             </Text>
 
             <Text style={styles.summaryLabel}>
-              Exam Taken
+              {examsTaken === 1 ? "Exam Taken" : "Exams Taken"}
             </Text>
           </View>
 

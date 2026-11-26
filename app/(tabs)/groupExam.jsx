@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,14 +11,17 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  AppState,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { Image } from "expo-image";
+import { toQR } from "toqr";
 import { useAuth } from "../../context/AuthContext";
+import { setExamActive } from "../../lib/examActiveState";
 
 import {
   createExamRoom,
@@ -29,6 +32,7 @@ import {
   fetchRoomParticipants,
   getRecentBatchSessions,
 } from "../../lib/groupExamManager";
+import { buildQuestionSetByIds } from "../../lib/examData";
 import { saveAttempt } from "../../lib/attempts";
 import ExamQuestionScreen from "../ExamQuestionScreen";
 import SubmitExamModal from "../SubmitExamModal";
@@ -84,6 +88,72 @@ function parseRoomCodeFromScannedData(rawData) {
   return null;
 }
 
+/**
+ * 100% offline, zero-network QR code component.
+ * Uses toqr encoder to render genuine, scan-ready QR code matrices.
+ */
+function OfflineQRCode({ value, size = 180, color = "#0F172A", bgColor = "#FFFFFF" }) {
+  const matrix = useMemo(() => {
+    try {
+      if (!value) return null;
+      const modules = toQR(String(value));
+      const dimension = Math.round(Math.sqrt(modules.length));
+      if (!dimension || dimension < 10) return null;
+
+      const rows = [];
+      for (let r = 0; r < dimension; r++) {
+        const row = [];
+        let currVal = modules[r * dimension] === 1;
+        let count = 1;
+        for (let c = 1; c < dimension; c++) {
+          const val = modules[r * dimension + c] === 1;
+          if (val === currVal) {
+            count++;
+          } else {
+            row.push({ isDark: currVal, count });
+            currVal = val;
+            count = 1;
+          }
+        }
+        row.push({ isDark: currVal, count });
+        rows.push(row);
+      }
+      return { dimension, rows };
+    } catch {
+      return null;
+    }
+  }, [value]);
+
+  if (!matrix) {
+    return (
+      <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name="qr-code" size={size * 0.8} color={color} />
+      </View>
+    );
+  }
+
+  const cellSize = size / matrix.dimension;
+
+  return (
+    <View style={{ width: size, height: size, backgroundColor: bgColor, padding: 6, borderRadius: 12 }}>
+      {matrix.rows.map((row, rIdx) => (
+        <View key={`r-${rIdx}`} style={{ flexDirection: "row", height: cellSize }}>
+          {row.map((seg, sIdx) => (
+            <View
+              key={`s-${sIdx}`}
+              style={{
+                width: seg.count * cellSize,
+                height: cellSize,
+                backgroundColor: seg.isDark ? color : bgColor,
+              }}
+            />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function GroupExamScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -101,10 +171,36 @@ export default function GroupExamScreen() {
   const [isCreating, setIsCreating] = useState(false);
 
   // Live Camera QR Scanner State
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [cameraPermission, requestCameraPermission, getCameraPermission] = useCameraPermissions();
   const [isScanningActive, setIsScanningActive] = useState(true);
+  const isScanningActiveRef = useRef(true);
   const [isTorchOn, setIsTorchOn] = useState(false);
-  const [qrLoadError, setQrLoadError] = useState(false);
+  const [isCameraMounted, setIsCameraMounted] = useState(false);
+  const [cameraMountError, setCameraMountError] = useState(null);
+
+  // Delay CameraView mount slightly until Modal transition settles (prevents black surface on Android)
+  useEffect(() => {
+    if (!showScannerModal || !cameraPermission?.granted) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setIsCameraMounted(true);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [showScannerModal, cameraPermission?.granted]);
+
+  // Re-check camera permissions when the user returns from device Settings
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState) => {
+      if (nextAppState === "active" && typeof getCameraPermission === "function") {
+        getCameraPermission().catch(() => {});
+      }
+    };
+    const sub = AppState.addEventListener("change", handleAppStateChange);
+    return () => {
+      sub.remove();
+    };
+  }, [getCameraPermission]);
 
   // Host configuration state
   const [selectedLevel, setSelectedLevel] = useState("Professional");
@@ -159,110 +255,245 @@ export default function GroupExamScreen() {
     };
   }, []);
 
+  // Synchronize global exam active state to hide bottom tab navigation during active exams or results
+  useEffect(() => {
+    const isExamRunning = !!((activeSession && activeSession.isStarted) || viewingLeaderboard);
+    setExamActive(isExamRunning);
+    return () => {
+      setExamActive(false);
+    };
+  }, [activeSession, viewingLeaderboard]);
+
   // =========================================================================
   // JOIN ROOM HANDLERS
   // =========================================================================
 
-  const handleJoinWithCode = async (customCode = null) => {
-    const targetCode = (customCode || roomCode).trim().toUpperCase();
-    if (targetCode.length < 4) {
-      Alert.alert("Invalid Code", "Please enter a valid 6-character room code.");
-      return;
+  const handleJoinWithCode = useCallback(
+    async (customCode = null) => {
+      const targetCode = (customCode || roomCode).trim().toUpperCase();
+      if (targetCode.length < 4) {
+        Alert.alert("Invalid Code", "Please enter a valid 6-character room code.");
+        return;
+      }
+
+      setIsJoining(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+
+      try {
+        const { room, questions, participant } = await joinExamRoom({
+          roomCode: targetCode,
+          displayName: currentUserName,
+        });
+
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+
+        const durationSecs = (room.time_limit_minutes || 45) * 60;
+        const sessionState = {
+          room,
+          questions,
+          isHost: false,
+          isStarted: room.status === "in_progress",
+          answers: {},
+          currentIndex: 0,
+          timeLeft: durationSecs,
+          initialDuration: durationSecs,
+        };
+
+        // Subscribe to host's start broadcast
+        if (unsubscribeRef.current) unsubscribeRef.current();
+        unsubscribeRef.current = subscribeToRoomChannel({
+          roomCode: room.room_code,
+          participantName: participant.display_name,
+          onExamStarted: async (payload) => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+
+            // If the host broadcast contains locked questionIds, synchronize questions immediately
+            if (payload?.questionIds && Array.isArray(payload.questionIds) && payload.questionIds.length > 0) {
+              const hostIds = payload.questionIds;
+              const syncedQuestions = await buildQuestionSetByIds(hostIds);
+              if (syncedQuestions && syncedQuestions.length > 0) {
+                setActiveSession((prev) => (prev ? { ...prev, questions: syncedQuestions, isStarted: true } : prev));
+                return;
+              }
+            }
+
+            setActiveSession((prev) => (prev ? { ...prev, isStarted: true } : prev));
+          },
+        });
+
+        setActiveSession(sessionState);
+        setRoomCode("");
+      } catch (err) {
+        Alert.alert("Unable to Join Room", err.message || "Failed to connect to the examination room.");
+      } finally {
+        setIsJoining(false);
+      }
+    },
+    [roomCode, currentUserName]
+  );
+
+  const handleOpenScanner = async () => {
+    isScanningActiveRef.current = true;
+    setIsScanningActive(true);
+    setIsTorchOn(false);
+    setIsCameraMounted(false);
+    setCameraMountError(null);
+
+    if (!cameraPermission?.granted) {
+      if (cameraPermission?.canAskAgain === false) {
+        Alert.alert(
+          "Camera Permission Required",
+          "Camera access is disabled in your device settings. Please enable it to scan QR codes, or enter the code manually.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Open Settings",
+              onPress: () => {
+                Linking.openSettings().catch(() => {});
+              },
+            },
+          ]
+        );
+        setShowScannerModal(true);
+        return;
+      }
+      try {
+        const res = await requestCameraPermission();
+        if (!res?.granted && !res?.canAskAgain) {
+          Alert.alert(
+            "Camera Access Needed",
+            "Please enable camera access in your device settings to scan QR codes.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Open Settings", onPress: () => Linking.openSettings().catch(() => {}) },
+            ]
+          );
+        }
+      } catch {}
     }
+    setShowScannerModal(true);
+  };
 
-    setIsJoining(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-
+  const handleGrantCamera = async () => {
     try {
-      const { room, questions, participant } = await joinExamRoom({
-        roomCode: targetCode,
-        displayName: currentUserName,
-      });
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-
-      const durationSecs = (room.time_limit_minutes || 45) * 60;
-      const sessionState = {
-        room,
-        questions,
-        isHost: false,
-        isStarted: room.status === "in_progress",
-        answers: {},
-        currentIndex: 0,
-        timeLeft: durationSecs,
-        initialDuration: durationSecs,
-      };
-
-      // Subscribe to host's start broadcast
-      if (unsubscribeRef.current) unsubscribeRef.current();
-      unsubscribeRef.current = subscribeToRoomChannel({
-        roomCode: room.room_code,
-        participantName: participant.display_name,
-        onExamStarted: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-          setActiveSession((prev) => (prev ? { ...prev, isStarted: true } : prev));
-        },
-      });
-
-      setActiveSession(sessionState);
-      setRoomCode("");
-    } catch (err) {
-      Alert.alert("Unable to Join Room", err.message || "Failed to connect to the examination room.");
-    } finally {
-      setIsJoining(false);
+      if (cameraPermission?.canAskAgain === false) {
+        Linking.openSettings().catch(() => {});
+        return;
+      }
+      const res = await requestCameraPermission();
+      if (!res?.granted && !res?.canAskAgain) {
+        Alert.alert(
+          "Camera Access Required",
+          "Camera access was denied. Please allow camera access in Settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings().catch(() => {}) },
+          ]
+        );
+      }
+    } catch {
+      Linking.openSettings().catch(() => {});
     }
   };
 
-  const handleOpenScanner = async () => {
-    setIsScanningActive(true);
-    setIsTorchOn(false);
-    setShowScannerModal(true);
-    if (!cameraPermission?.granted) {
-      try {
-        await requestCameraPermission();
-      } catch {}
-    }
+  const handleLaunchSystemScanner = async () => {
+    try {
+      if (CameraView?.launchScanner) {
+        setShowScannerModal(false);
+        await CameraView.launchScanner({ barcodeTypes: ["qr"] });
+      }
+    } catch {}
   };
 
   const handleCloseScanner = () => {
+    isScanningActiveRef.current = false;
     setIsScanningActive(false);
     setIsTorchOn(false);
+    setIsCameraMounted(false);
+    setCameraMountError(null);
     setShowScannerModal(false);
   };
 
   const handleSimulatedScan = (code) => {
+    isScanningActiveRef.current = false;
     setIsScanningActive(false);
     setIsTorchOn(false);
     setShowScannerModal(false);
     handleJoinWithCode(code);
   };
 
-  const handleLiveBarcodeScanned = ({ data }) => {
-    if (!isScanningActive || !data) return;
-    setIsScanningActive(false);
+  const handleLiveBarcodeScanned = useCallback(
+    (scannedResult) => {
+      if (!isScanningActiveRef.current || !scannedResult) return;
 
-    const extractedCode = parseRoomCodeFromScannedData(data);
-    if (extractedCode) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setIsTorchOn(false);
-      setShowScannerModal(false);
-      handleJoinWithCode(extractedCode);
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      Alert.alert(
-        "Unrecognized QR Code",
-        `The scanned code ("${data}") is not a valid APEX Group Exam code. Please scan the instructor's screen or enter the code manually.`,
-        [
-          {
-            text: "Try Again",
-            onPress: () => {
-              setIsScanningActive(true);
+      const rawData =
+        scannedResult?.data ||
+        scannedResult?.nativeEvent?.data ||
+        scannedResult?.raw ||
+        scannedResult?.nativeEvent?.raw ||
+        (typeof scannedResult === "string" ? scannedResult : null);
+
+      if (!rawData) return;
+
+      isScanningActiveRef.current = false;
+      setIsScanningActive(false);
+
+      const extractedCode = parseRoomCodeFromScannedData(rawData);
+      if (extractedCode) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        setIsTorchOn(false);
+        setShowScannerModal(false);
+        handleJoinWithCode(extractedCode);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        Alert.alert(
+          "Unrecognized QR Code",
+          `The scanned code ("${rawData}") is not a valid APEX Group Exam code. Please scan the instructor's screen or enter the code manually.`,
+          [
+            {
+              text: "Try Again",
+              onPress: () => {
+                isScanningActiveRef.current = true;
+                setIsScanningActive(true);
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [roomCode, currentUserName]
+  );
+
+  const barcodeScannerSettings = useMemo(
+    () => ({
+      barcodeTypes: ["qr"],
+    }),
+    []
+  );
+
+  // Modern Barcode Scanner (Google Code Scanner / iOS DataScanner) listener
+  useEffect(() => {
+    if (CameraView?.isModernBarcodeScannerAvailable && typeof CameraView?.onModernBarcodeScanned === "function") {
+      const sub = CameraView.onModernBarcodeScanned((result) => {
+        const rawData =
+          result?.data ||
+          result?.raw ||
+          result?.nativeEvent?.data ||
+          (typeof result === "string" ? result : null);
+        if (rawData) {
+          const code = parseRoomCodeFromScannedData(rawData);
+          if (code) {
+            setShowScannerModal(false);
+            handleJoinWithCode(code);
+          }
+        }
+      });
+      return () => {
+        sub?.remove?.();
+      };
     }
-  };
+  }, [handleJoinWithCode]);
 
   // =========================================================================
   // HOST ROOM HANDLERS
@@ -328,8 +559,15 @@ export default function GroupExamScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     setShowHostModal(false);
 
-    // Broadcast START_EXAM to all joined student devices!
-    await broadcastExamStart(hostRoomCode);
+    const questionIds = (hostCreatedRoom.questions || []).map((q) => q.id);
+
+    // Broadcast START_EXAM with the host's locked questionIds to all joined student devices!
+    await broadcastExamStart(hostRoomCode, {
+      questionIds,
+      level: hostCreatedRoom.room.level,
+      questionCount: hostCreatedRoom.questions.length,
+      timeLimitMinutes: hostCreatedRoom.room.time_limit_minutes,
+    });
 
     const durationSecs = (hostCreatedRoom.room.time_limit_minutes || 45) * 60;
     setActiveSession({
@@ -884,7 +1122,7 @@ export default function GroupExamScreen() {
           <View style={styles.scannerModalContent}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <View>
+              <View style={styles.modalTitleContainer}>
                 <Text style={styles.modalTitle}>Scan Classroom QR Code</Text>
                 <Text style={styles.modalSubtitle}>Point camera at the instructor screen</Text>
               </View>
@@ -896,13 +1134,13 @@ export default function GroupExamScreen() {
                       setIsTorchOn((prev) => !prev);
                     }}
                     style={[styles.torchBtn, isTorchOn && styles.torchBtnActive]}
-                    hitSlop={8}
+                    hitSlop={10}
                     accessibilityRole="button"
                     accessibilityLabel="Toggle Camera Flashlight"
                   >
                     <Ionicons
                       name={isTorchOn ? "flashlight" : "flashlight-outline"}
-                      size={20}
+                      size={18}
                       color={isTorchOn ? "#FFFFFF" : COLORS.text}
                     />
                   </TouchableOpacity>
@@ -910,11 +1148,11 @@ export default function GroupExamScreen() {
                 <TouchableOpacity
                   onPress={handleCloseScanner}
                   style={styles.closeBtn}
-                  hitSlop={8}
+                  hitSlop={10}
                   accessibilityRole="button"
                   accessibilityLabel="Close QR Scanner"
                 >
-                  <Ionicons name="close" size={22} color={COLORS.text} />
+                  <Ionicons name="close" size={20} color={COLORS.text} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -923,42 +1161,115 @@ export default function GroupExamScreen() {
               Align the QR code within the frame to automatically join the examination room.
             </Text>
 
+            {CameraView?.isModernBarcodeScannerAvailable && (
+              <TouchableOpacity
+                style={styles.systemScannerPillBtn}
+                onPress={handleLaunchSystemScanner}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Open Google Code Scanner"
+              >
+                <Ionicons name="scan-outline" size={16} color={COLORS.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.systemScannerPillText}>Open Google Code Scanner</Text>
+              </TouchableOpacity>
+            )}
+
             {/* Viewfinder Graphic / Live Camera Container */}
             <View style={styles.viewfinderBox}>
               {!cameraPermission ? (
                 <View style={styles.cameraLoadingBox}>
                   <ActivityIndicator size="large" color={COLORS.primary} />
-                  <Text style={styles.cameraLoadingText}>Initializing camera...</Text>
+                  <Text style={styles.cameraLoadingText}>Checking camera access...</Text>
                 </View>
               ) : !cameraPermission.granted ? (
                 <View style={styles.cameraPermissionBox}>
                   <Ionicons name="videocam-off-outline" size={44} color="#94A3B8" />
                   <Text style={styles.cameraPermissionTitle}>Camera Access Required</Text>
                   <Text style={styles.cameraPermissionSubtitle}>
-                    APEX-CS requires camera permission to scan classroom QR codes.
+                    {cameraPermission?.canAskAgain === false
+                      ? "Camera permission is disabled in your device settings. Tap below to enable it or use Google Code Scanner."
+                      : "APEX-CS requires camera permission to scan classroom QR codes."}
                   </Text>
-                  <TouchableOpacity
-                    style={styles.grantCameraBtn}
-                    onPress={() => requestCameraPermission()}
-                    activeOpacity={0.85}
-                    accessibilityRole="button"
-                    accessibilityLabel="Grant Camera Access"
-                  >
-                    <Text style={styles.grantCameraBtnText}>Grant Camera Access</Text>
-                  </TouchableOpacity>
+                  <View style={styles.permissionActionGroup}>
+                    {cameraPermission?.canAskAgain === false ? (
+                      <TouchableOpacity
+                        style={styles.grantCameraBtn}
+                        onPress={() => Linking.openSettings().catch(() => {})}
+                        activeOpacity={0.85}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open App Settings"
+                      >
+                        <Ionicons name="settings-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.grantCameraBtnText}>Open App Settings</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.grantCameraBtn}
+                        onPress={handleGrantCamera}
+                        activeOpacity={0.85}
+                        accessibilityRole="button"
+                        accessibilityLabel="Grant Camera Access"
+                      >
+                        <Ionicons name="camera-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.grantCameraBtnText}>Grant Camera Access</Text>
+                      </TouchableOpacity>
+                    )}
+                    {CameraView?.isModernBarcodeScannerAvailable && (
+                      <TouchableOpacity
+                        style={styles.modernScannerFallbackBtn}
+                        onPress={handleLaunchSystemScanner}
+                        activeOpacity={0.85}
+                        accessibilityRole="button"
+                        accessibilityLabel="Use Google Code Scanner without permissions"
+                      >
+                        <Ionicons name="scan-outline" size={18} color={COLORS.primary} style={{ marginRight: 6 }} />
+                        <Text style={styles.modernScannerFallbackText}>Use Google Scanner (No Permission Needed)</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               ) : (
-                <>
-                  {showScannerModal && cameraPermission?.granted && (
+                <View style={{ width: "100%", height: "100%", position: "relative" }}>
+                  {cameraMountError ? (
+                    <View style={styles.cameraPermissionBox}>
+                      <Ionicons name="alert-circle-outline" size={40} color="#F59E0B" />
+                      <Text style={styles.cameraPermissionTitle}>Camera Preview Unavailable</Text>
+                      <Text style={styles.cameraPermissionSubtitle}>
+                        {cameraMountError}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.grantCameraBtn}
+                        onPress={() => {
+                          setCameraMountError(null);
+                          setIsCameraMounted(false);
+                          setTimeout(() => setIsCameraMounted(true), 200);
+                        }}
+                        activeOpacity={0.85}
+                        accessibilityRole="button"
+                        accessibilityLabel="Retry Camera"
+                      >
+                        <Ionicons name="refresh-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.grantCameraBtnText}>Retry Camera</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : isCameraMounted ? (
                     <CameraView
-                      style={StyleSheet.absoluteFillObject}
+                      style={{ width: "100%", height: "100%" }}
                       facing="back"
                       enableTorch={isTorchOn}
-                      barcodeScannerSettings={{
-                        barcodeTypes: ["qr"],
-                      }}
+                      barcodeScannerSettings={barcodeScannerSettings}
                       onBarcodeScanned={isScanningActive ? handleLiveBarcodeScanned : undefined}
+                      onMountError={(event) => {
+                        setCameraMountError(
+                          event?.message || "Unable to initialize the device camera."
+                        );
+                      }}
                     />
+                  ) : (
+                    <View style={styles.cameraLoadingBox}>
+                      <ActivityIndicator size="large" color={COLORS.primary} />
+                      <Text style={styles.cameraLoadingText}>Starting camera...</Text>
+                    </View>
                   )}
 
                   {/* Corner Target Reticles */}
@@ -968,15 +1279,19 @@ export default function GroupExamScreen() {
                   <View style={[styles.corner, styles.cornerBR]} pointerEvents="none" />
 
                   {/* Scanning Laser Line */}
-                  <View style={styles.scannerLaser} pointerEvents="none" />
+                  {isCameraMounted && !cameraMountError && isScanningActive && (
+                    <View style={styles.scannerLaser} pointerEvents="none" />
+                  )}
 
                   {/* Floating Frame Reticle Guide */}
                   <View style={styles.scannerOverlay} pointerEvents="none">
                     <View style={styles.scannerHintBadge}>
-                      <Text style={styles.scannerHintText}>ALIGN QR CODE IN FRAME</Text>
+                      <Text style={styles.scannerHintText}>
+                        {isScanningActive ? "ALIGN QR CODE IN FRAME" : "PROCESSING CODE..."}
+                      </Text>
                     </View>
                   </View>
-                </>
+                </View>
               )}
             </View>
 
@@ -1010,36 +1325,25 @@ export default function GroupExamScreen() {
           <View style={styles.hostModalContent}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <View>
+              <View style={styles.modalTitleContainer}>
                 <Text style={styles.modalTitle}>Classroom QR Code</Text>
                 <Text style={styles.modalSubtitle}>{selectedLevel} Level • {selectedItemCount} Items</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setShowHostModal(false)}
                 style={styles.closeBtn}
-                hitSlop={12}
+                hitSlop={10}
                 accessibilityRole="button"
                 accessibilityLabel="Close Classroom Modal"
               >
-                <Ionicons name="close" size={22} color={COLORS.text} />
+                <Ionicons name="close" size={20} color={COLORS.text} />
               </TouchableOpacity>
             </View>
 
             {/* High-Contrast QR Code Card */}
             <View style={styles.qrDisplayCard}>
               <View style={styles.qrMockFrame}>
-                {!qrLoadError ? (
-                  <Image
-                    source={{
-                      uri: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&format=png&data=${encodeURIComponent(hostRoomCode)}`,
-                    }}
-                    style={{ width: 170, height: 170 }}
-                    contentFit="contain"
-                    onError={() => setQrLoadError(true)}
-                  />
-                ) : (
-                  <Ionicons name="qr-code" size={170} color="#1E3A8A" />
-                )}
+                <OfflineQRCode value={hostRoomCode} size={180} />
               </View>
 
               {/* Text Room Code */}
@@ -1049,13 +1353,18 @@ export default function GroupExamScreen() {
                   style={styles.copyCodeBtn}
                   onPress={handleCopyCode}
                   activeOpacity={0.8}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Copy room code"
                 >
                   <Ionicons
                     name={isCopied ? "checkmark" : "copy-outline"}
                     size={16}
-                    color={COLORS.primary}
+                    color={isCopied ? COLORS.success : COLORS.primary}
                   />
-                  <Text style={styles.copyCodeText}>{isCopied ? "Copied" : "Copy"}</Text>
+                  <Text style={[styles.copyCodeText, isCopied && { color: COLORS.success }]}>
+                    {isCopied ? "Copied" : "Copy"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1545,21 +1854,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    padding: 22,
+    padding: 20,
     paddingBottom: 36,
   },
   hostModalContent: {
     backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    padding: 22,
+    padding: 20,
     paddingBottom: 36,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     marginBottom: 10,
+    width: "100%",
+  },
+  modalTitleContainer: {
+    flex: 1,
+    marginRight: 10,
   },
   modalTitle: {
     fontSize: 18,
@@ -1575,25 +1889,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexShrink: 0,
   },
   torchBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
+  },
+  systemScannerPillBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.primaryBg,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+    alignSelf: "flex-start",
+  },
+  systemScannerPillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.primary,
   },
   torchBtnActive: {
     backgroundColor: COLORS.primary,
   },
   closeBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
   scannerInstructions: {
     fontSize: 13,
@@ -1630,7 +1962,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 20,
+    padding: 16,
   },
   cameraPermissionTitle: {
     fontSize: 15,
@@ -1647,18 +1979,40 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     lineHeight: 17,
   },
+  permissionActionGroup: {
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4,
+  },
   grantCameraBtn: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
     minHeight: 44,
+    flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
   },
   grantCameraBtnText: {
     color: "#FFFFFF",
     fontSize: 13,
+    fontWeight: "700",
+  },
+  modernScannerFallbackBtn: {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  modernScannerFallbackText: {
+    color: COLORS.primary,
+    fontSize: 12,
     fontWeight: "700",
   },
   scannerOverlay: {

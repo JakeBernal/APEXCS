@@ -19,15 +19,6 @@ export default function Exams() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <TouchableOpacity
-        style={styles.backBtn}
-        onPress={() => router.back()}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel="Go back"
-      >
-        <Ionicons name="chevron-back" size={28} color="#14143A" />
-      </TouchableOpacity>
 
       <Text style={styles.title}>Choose exam</Text>
 
@@ -154,7 +145,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F8FAFC",
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 85,
   },
 
   backBtn: {

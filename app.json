@@ -16,7 +16,14 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.anonymous.apex",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "output": "static",
@@ -42,11 +49,18 @@
         {
           "cameraPermission": "Allow APEX-CS to access your camera to scan classroom group examination QR codes."
         }
-      ]
+      ],
+      "expo-splash-screen"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "60fcfef1-f7ba-430e-9807-edbefbb1bf4b"
+      }
     }
   }
 }
