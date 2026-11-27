@@ -211,6 +211,7 @@ export default function GroupExamScreen() {
 
   // Realtime Joined Students List - Starts EMPTY for genuine participants
   const [joinedStudents, setJoinedStudents] = useState([]);
+  const [activeRoomCount, setActiveRoomCount] = useState(1);
 
   // Active Group Exam Session State
   // { room, questions, isHost, isStarted, answers, currentIndex, timeLeft, initialDuration }
@@ -299,20 +300,58 @@ export default function GroupExamScreen() {
           initialDuration: durationSecs,
         };
 
-        // Subscribe to host's start broadcast
+        // Subscribe to host's start broadcast and live room presence
+        setActiveRoomCount(1);
         if (unsubscribeRef.current) unsubscribeRef.current();
         unsubscribeRef.current = subscribeToRoomChannel({
           roomCode: room.room_code,
           participantName: participant.display_name,
+          isHost: false,
+          onPresenceSync: ({ activeCount }) => {
+            if (typeof activeCount === "number" && activeCount > 0) {
+              setActiveRoomCount(activeCount);
+            }
+          },
           onExamStarted: async (payload) => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
-            // If the host broadcast contains locked questionIds, synchronize questions immediately
+            const syncedDurationSecs = payload?.timeLimitMinutes
+              ? payload.timeLimitMinutes * 60
+              : null;
+
+            // 1. Prefer exact host questions payload so all devices get 100% identical questions
+            if (payload?.questions && Array.isArray(payload.questions) && payload.questions.length > 0) {
+              setActiveSession((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      questions: payload.questions,
+                      isStarted: true,
+                      ...(syncedDurationSecs
+                        ? { timeLeft: syncedDurationSecs, initialDuration: syncedDurationSecs }
+                        : {}),
+                    }
+                  : prev
+              );
+              return;
+            }
+
+            // 2. Fallback: synchronize by locked questionIds
             if (payload?.questionIds && Array.isArray(payload.questionIds) && payload.questionIds.length > 0) {
-              const hostIds = payload.questionIds;
-              const syncedQuestions = await buildQuestionSetByIds(hostIds);
+              const syncedQuestions = await buildQuestionSetByIds(payload.questionIds);
               if (syncedQuestions && syncedQuestions.length > 0) {
-                setActiveSession((prev) => (prev ? { ...prev, questions: syncedQuestions, isStarted: true } : prev));
+                setActiveSession((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        questions: syncedQuestions,
+                        isStarted: true,
+                        ...(syncedDurationSecs
+                          ? { timeLeft: syncedDurationSecs, initialDuration: syncedDurationSecs }
+                          : {}),
+                      }
+                    : prev
+                );
                 return;
               }
             }
@@ -514,11 +553,24 @@ export default function GroupExamScreen() {
       setHostRoomCode(room.room_code);
       setHostCreatedRoom({ room, questions });
 
-      // Subscribe to real-time student attendance in the lobby
+      // Subscribe to real-time student attendance & active count in the lobby
+      setActiveRoomCount(1);
       if (unsubscribeRef.current) unsubscribeRef.current();
       unsubscribeRef.current = subscribeToRoomChannel({
         roomCode: room.room_code,
         participantName: "Instructor",
+        isHost: true,
+        onPresenceSync: ({ activeCount, participants }) => {
+          if (typeof activeCount === "number" && activeCount > 0) {
+            setActiveRoomCount(activeCount);
+          }
+          if (Array.isArray(participants)) {
+            const activeStudents = participants.filter(
+              (p) => p.role !== "host" && p.name !== "Instructor"
+            );
+            setJoinedStudents(activeStudents);
+          }
+        },
         onParticipantJoin: (newStudent) => {
           if (!newStudent || !newStudent.name || newStudent.name === "Instructor") return;
           setJoinedStudents((prev) => {
@@ -561,9 +613,10 @@ export default function GroupExamScreen() {
 
     const questionIds = (hostCreatedRoom.questions || []).map((q) => q.id);
 
-    // Broadcast START_EXAM with the host's locked questionIds to all joined student devices!
+    // Broadcast START_EXAM with the host's locked questions & questionIds to all joined student devices
     await broadcastExamStart(hostRoomCode, {
       questionIds,
+      questions: hostCreatedRoom.questions,
       level: hostCreatedRoom.room.level,
       questionCount: hostCreatedRoom.questions.length,
       timeLimitMinutes: hostCreatedRoom.room.time_limit_minutes,
@@ -670,10 +723,28 @@ export default function GroupExamScreen() {
     return (
       <View style={[styles.lobbyContainer, { paddingTop: insets.top, paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.lobbyContent}>
-          {/* Animated Pulsing Signal Badge */}
-          <View style={styles.signalBadge}>
-            <View style={styles.signalDot} />
-            <Text style={styles.signalText}>CONNECTED TO ROOM {activeSession.room?.room_code}</Text>
+          {/* Connected Room Badge + Minimalist Active User Count on Side */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 16 }}>
+            <View style={[styles.signalBadge, { marginBottom: 0 }]}>
+              <View style={styles.signalDot} />
+              <Text style={styles.signalText}>ROOM {activeSession.room?.room_code}</Text>
+            </View>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: COLORS.successBg,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 999,
+                gap: 5,
+              }}
+            >
+              <Ionicons name="person" size={13} color={COLORS.success} />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: COLORS.success }}>
+                {activeRoomCount}
+              </Text>
+            </View>
           </View>
 
           <Text style={styles.lobbyTitle}>Classroom Waiting Lobby</Text>
@@ -755,6 +826,7 @@ export default function GroupExamScreen() {
           onBack={() => setShowQuitModal(true)}
           onRequestSubmit={() => setShowSubmitModal(true)}
           onTimeUp={handleFinishExam}
+          activeParticipantsCount={activeRoomCount}
         />
 
         <SubmitExamModal
@@ -1373,25 +1445,42 @@ export default function GroupExamScreen() {
             <View
               style={[
                 styles.attendanceBar,
-                joinedStudents.length === 0 && { backgroundColor: "#F1F5F9" },
+                joinedStudents.length === 0 && activeRoomCount <= 1 && { backgroundColor: "#F1F5F9" },
               ]}
             >
               <View
                 style={[
                   styles.attendanceDot,
-                  joinedStudents.length === 0 && { backgroundColor: COLORS.muted },
+                  joinedStudents.length === 0 && activeRoomCount <= 1 && { backgroundColor: COLORS.muted },
                 ]}
               />
               <Text
                 style={[
                   styles.attendanceText,
-                  joinedStudents.length === 0 && { color: COLORS.muted },
+                  { flex: 1 },
+                  joinedStudents.length === 0 && activeRoomCount <= 1 && { color: COLORS.muted },
                 ]}
               >
                 {joinedStudents.length === 0
-                  ? "Waiting for reviewees to scan or enter code..."
-                  : `${joinedStudents.length} reviewee${joinedStudents.length > 1 ? "s" : ""} ready in lobby`}
+                  ? "Waiting for reviewees..."
+                  : `${joinedStudents.length} reviewee${joinedStudents.length > 1 ? "s" : ""} ready`}
               </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons
+                  name="person"
+                  size={13}
+                  color={joinedStudents.length === 0 && activeRoomCount <= 1 ? COLORS.muted : COLORS.success}
+                />
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "700",
+                    color: joinedStudents.length === 0 && activeRoomCount <= 1 ? COLORS.muted : COLORS.success,
+                  }}
+                >
+                  {activeRoomCount}
+                </Text>
+              </View>
             </View>
 
             {/* Realtime Joined Avatars */}

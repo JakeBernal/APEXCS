@@ -11,6 +11,7 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
+  BackHandler,
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -202,6 +203,21 @@ export default function Dashboard() {
       );
     }
   };
+
+  /*
+   * Prevent hardware back button on Dashboard from returning to Login / Get Started.
+   * Exits the app cleanly instead (standard Android home screen behavior).
+   */
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        BackHandler.exitApp();
+        return true;
+      };
+      const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+      return () => subscription.remove();
+    }, [])
+  );
 
   /*
    * Refetch whenever:

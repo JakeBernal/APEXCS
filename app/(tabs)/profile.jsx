@@ -10,6 +10,8 @@ import {
   Modal,
   Platform,
   Switch,
+  TextInput,
+  KeyboardAvoidingView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -35,6 +37,10 @@ import {
   getTodayQuestionsProgress,
   sendImmediateTestNotification,
 } from "../../lib/remindersHelper";
+import {
+  FEEDBACK_CATEGORIES,
+  submitUserFeedback,
+} from "../../lib/feedbackHelper";
 
 /* =========================================================================
    DESIGN TOKENS & PALETTE
@@ -219,6 +225,45 @@ export default function Profile() {
   const [examDate, setExamDateState] = useState(null);
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [savingDate, setSavingDate] = useState(false);
+
+  // Send Feedback Modal State
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [feedbackCategory, setFeedbackCategory] = useState("General");
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackMessage.trim()) {
+      Alert.alert("Feedback Required", "Please write a short message before submitting.");
+      return;
+    }
+    setSubmittingFeedback(true);
+    try {
+      const res = await submitUserFeedback({
+        userId: user?.id || null,
+        userName: fullName,
+        userEmail: email || null,
+        category: feedbackCategory,
+        rating: feedbackRating,
+        message: feedbackMessage,
+      });
+      setFeedbackModalVisible(false);
+      setFeedbackMessage("");
+      setFeedbackCategory("General");
+      setFeedbackRating(5);
+      Alert.alert(
+        "Thank You!",
+        res?.synced
+          ? "Your feedback has been submitted to the APEX-CS team."
+          : "You are offline—your feedback has been saved locally on your device."
+      );
+    } catch (err) {
+      Alert.alert("Unable to Send", err?.message || "Please try again.");
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -458,13 +503,19 @@ export default function Profile() {
             <SettingRow
               icon="shield-checkmark-outline"
               title="Security & Password"
-              isLast
               onPress={() =>
                 Alert.alert(
                   "Security & Password",
                   "Your account is secured with Supabase Authentication. Password management links are delivered to your registered email address."
                 )
               }
+            />
+            <SettingRow
+              icon="chatbubble-ellipses-outline"
+              title="Send Feedback"
+              badge="Help us improve"
+              isLast
+              onPress={() => setFeedbackModalVisible(true)}
             />
           </View>
 
@@ -487,6 +538,185 @@ export default function Profile() {
         onClose={() => setCalendarVisible(false)}
         onSelect={handleSelectExamDate}
       />
+
+      {/* Send Feedback Modal */}
+      <Modal
+        visible={feedbackModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFeedbackModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(15, 23, 42, 0.55)",
+            justifyContent: "flex-end",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 20,
+              paddingBottom: 28,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 14,
+              }}
+            >
+              <View>
+                <Text style={{ fontSize: 18, fontWeight: "800", color: PALETTE.text }}>
+                  Send Feedback
+                </Text>
+                <Text style={{ fontSize: 13, color: PALETTE.muted, marginTop: 2 }}>
+                  Share suggestions, bugs, or question corrections
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setFeedbackModalVisible(false)}
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: "#F1F5F9",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Close feedback modal"
+              >
+                <Ionicons name="close" size={20} color={PALETTE.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Category Chips */}
+            <Text style={{ fontSize: 12, fontWeight: "700", color: PALETTE.muted, marginBottom: 8 }}>
+              CATEGORY
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+              {FEEDBACK_CATEGORIES.map((cat) => {
+                const selected = feedbackCategory === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    onPress={() => setFeedbackCategory(cat)}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      minHeight: 44,
+                      justifyContent: "center",
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: selected ? PALETTE.primary : "#E2E8F0",
+                      backgroundColor: selected ? "#EFF6FF" : "#F8FAFC",
+                    }}
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: "700",
+                        color: selected ? PALETTE.primary : PALETTE.text,
+                      }}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Star Rating */}
+            <Text style={{ fontSize: 12, fontWeight: "700", color: PALETTE.muted, marginBottom: 6 }}>
+              EXPERIENCE RATING
+            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 16 }}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => setFeedbackRating(star)}
+                  style={{
+                    width: 44,
+                    height: 44,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Rate ${star} stars`}
+                >
+                  <Ionicons
+                    name={star <= feedbackRating ? "star" : "star-outline"}
+                    size={28}
+                    color={star <= feedbackRating ? "#F59E0B" : "#CBD5E1"}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Feedback Input */}
+            <Text style={{ fontSize: 12, fontWeight: "700", color: PALETTE.muted, marginBottom: 8 }}>
+              YOUR MESSAGE
+            </Text>
+            <TextInput
+              value={feedbackMessage}
+              onChangeText={setFeedbackMessage}
+              placeholder="Write your feedback or report a question issue..."
+              placeholderTextColor="#94A3B8"
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              style={{
+                minHeight: 100,
+                backgroundColor: "#F8FAFC",
+                borderWidth: 1,
+                borderColor: "#E2E8F0",
+                borderRadius: 14,
+                padding: 12,
+                fontSize: 14,
+                color: PALETTE.text,
+                marginBottom: 16,
+              }}
+            />
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              onPress={handleSubmitFeedback}
+              disabled={submittingFeedback || !feedbackMessage.trim()}
+              style={{
+                minHeight: 48,
+                borderRadius: 14,
+                backgroundColor:
+                  submittingFeedback || !feedbackMessage.trim()
+                    ? "#CBD5E1"
+                    : PALETTE.primary,
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "row",
+                gap: 8,
+              }}
+              accessibilityRole="button"
+            >
+              {submittingFeedback ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="send" size={16} color="#FFFFFF" />
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: "#FFFFFF" }}>
+                    Submit Feedback
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Avatar Picker Modal */}
       <Modal

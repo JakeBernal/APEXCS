@@ -289,6 +289,7 @@ export default function ExamQuestionScreen({
   onBack,
   onRequestSubmit,
   onTimeUp,
+  activeParticipantsCount = null,
 }) {
   const insets = useSafeAreaInsets();
   const [flipped, setFlipped] = useState(false);
@@ -813,6 +814,42 @@ export default function ExamQuestionScreen({
               <Text style={styles.headerSubtitle}>
                 {levelLabel}
               </Text>
+
+              {typeof activeParticipantsCount === "number" && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: "rgba(16, 185, 129, 0.22)",
+                    borderWidth: 1,
+                    borderColor: "rgba(16, 185, 129, 0.55)",
+                    paddingHorizontal: 10,
+                    paddingVertical: 3,
+                    borderRadius: 999,
+                    marginTop: 4,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: "#34D399",
+                      marginRight: 6,
+                    }}
+                  />
+                  <Text
+                    style={{
+                      color: "#ECFDF5",
+                      fontSize: 11,
+                      fontWeight: "700",
+                    }}
+                  >
+                    {activeParticipantsCount}{" "}
+                    {activeParticipantsCount === 1 ? "person" : "people"} in room
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* QUESTION NAVIGATOR BUTTON (PAGINATION) */}
@@ -950,21 +987,32 @@ export default function ExamQuestionScreen({
             </View>
 
             {mode === "timed" && (
-              <View style={styles.pill}>
-                <Ionicons
-                  name="time-outline"
-                  size={13}
-                  color="#fff"
-                />
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                {typeof activeParticipantsCount === "number" && (
+                  <View style={styles.pill}>
+                    <Ionicons name="person" size={12} color="#fff" />
+                    <Text style={[styles.pillText, { marginLeft: 4 }]}>
+                      {activeParticipantsCount}
+                    </Text>
+                  </View>
+                )}
 
-                <Text
-                  style={[
-                    styles.pillText,
-                    { marginLeft: 4 },
-                  ]}
-                >
-                  {formatTime(timeLeft)}
-                </Text>
+                <View style={styles.pill}>
+                  <Ionicons
+                    name="time-outline"
+                    size={13}
+                    color="#fff"
+                  />
+
+                  <Text
+                    style={[
+                      styles.pillText,
+                      { marginLeft: 4 },
+                    ]}
+                  >
+                    {formatTime(timeLeft)}
+                  </Text>
+                </View>
               </View>
             )}
 
