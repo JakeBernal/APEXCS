@@ -253,9 +253,11 @@ export default function Profile() {
       setFeedbackCategory("General");
       setFeedbackRating(5);
       Alert.alert(
-        "Thank You!",
+        res?.synced ? "Thank You!" : "Feedback Saved Locally",
         res?.synced
           ? "Your feedback has been submitted to the APEX-CS team."
+          : res?.cloudError
+          ? `Saved on device, but Supabase returned: ${res.cloudError}`
           : "You are offline—your feedback has been saved locally on your device."
       );
     } catch (err) {

@@ -771,20 +771,8 @@ export default function GroupExamScreen() {
 
           <View style={styles.lobbyWaitingBox}>
             <ActivityIndicator size="small" color={COLORS.primary} />
-            <Text style={styles.lobbyWaitingText}>Synchronizing with instructor...</Text>
+            <Text style={styles.lobbyWaitingText}>Waiting for instructor to start the exam...</Text>
           </View>
-
-          {/* Quick Demo Test Action for Solo Testing */}
-          <TouchableOpacity
-            style={styles.demoStartBtn}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-              setActiveSession((prev) => ({ ...prev, isStarted: true }));
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.demoStartBtnText}>Start Immediately (Self-Paced)</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.lobbyExitBtn}
@@ -815,13 +803,19 @@ export default function GroupExamScreen() {
           setCurrentIndex={(idx) => setActiveSession((prev) => ({ ...prev, currentIndex: idx }))}
           answers={activeSession.answers}
           setAnswers={(ans) => {
-            const resolved = typeof ans === "function" ? ans(activeSession.answers) : ans;
-            setActiveSession((prev) => ({ ...prev, answers: resolved }));
+            setActiveSession((prev) => {
+              if (!prev) return prev;
+              const resolved = typeof ans === "function" ? ans(prev.answers) : ans;
+              return { ...prev, answers: resolved };
+            });
           }}
           timeLeft={activeSession.timeLeft}
           setTimeLeft={(t) => {
-            const resolved = typeof t === "function" ? t(activeSession.timeLeft) : t;
-            setActiveSession((prev) => ({ ...prev, timeLeft: resolved }));
+            setActiveSession((prev) => {
+              if (!prev) return prev;
+              const resolved = typeof t === "function" ? t(prev.timeLeft) : t;
+              return { ...prev, timeLeft: resolved };
+            });
           }}
           onBack={() => setShowQuitModal(true)}
           onRequestSubmit={() => setShowSubmitModal(true)}
